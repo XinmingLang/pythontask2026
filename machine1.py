@@ -9,8 +9,10 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.path import Path
 import socket,math,time
-
+plt.rcParams['font.family'] = 'SimHei'
 class reciever():
     def __init__(self):
         pass
@@ -44,14 +46,80 @@ class calculator():
             print("测角结果异常,无法计算目标坐标")
             return None
         
-def drawplt():
-    '''绘制目标的真实轨迹和定位轨迹'''
-    pass
+def drawplt(track:list):
+    '''绘制目标的真实轨迹?和定位轨迹\n根据传入的二维坐标和时间戳数据绘制目标的运动轨迹和定位轨迹\n
+    **track**:一个包含目标坐标和时间戳的二维数组,每行包含一个坐标(x,y)和对应的时间戳\n结构为 [[(x1, y1), t1], [(x2, y2), t2], ...]\n
+    '''
+    points = np.array([p[0] for p in track])
+    x = points[:, 0]
+    y = points[:, 1]
+    
+    # 2. 计算向量 (U, V)
+    # U 是 x 方向的变化量，V 是 y 方向的变化量
+    # 我们计算 current_point 到 next_point 的差值
+    # np.diff 计算相邻元素的差值，结果会比原数组少一个，所以最后要补一个 0
+    U = np.diff(x)
+    V = np.diff(y)
+    
+    # 为了让最后一个点也有箭头（或者不显示），我们在数组末尾补 0
+    # 这样 U, V 的长度就和 x, y 一致了
+    U = np.append(U, 0)
+    V = np.append(V, 0)
+    
+    # 3. 创建画布
+    plt.figure(figsize=(10, 8))
+    
+    # 4. 绘制箭头 (核心代码)
+    # angles='xy': 箭头角度根据数据坐标计算
+    # scale_units='xy': 缩放单位与数据坐标一致
+    # scale=1: 1:1 还原向量长度 (如果箭头太长太密，可以调大这个数值，比如 scale=5)
+    # width: 箭头的粗细
+    step = 3
+    plt.quiver(x[::step], y[::step], U[::step], V[::step], 
+               angles='xy', 
+               scale_units='xy', 
+               scale=1, 
+               width=0.005, 
+               color='blue', 
+               alpha=0.6,
+               label='运动方向向量')
+    
+    # 5. 绘制轨迹连线 (可选，为了看清整体路径)
+    plt.plot(x, y, color='gray', linestyle='--', linewidth=1, alpha=0.5, label='原始轨迹')
+    
+    # 6. 标记起点和终点
+    plt.scatter(x[0], y[0], color='green', s=100, label='起点', zorder=5)
+    plt.scatter(x[-1], y[-1], color='red', s=100, label='终点', zorder=5)
+    
+    # 7. 图表美化
+    plt.title('目标轨迹流向图 (点变为方向箭头)', fontsize=16)
+    plt.xlabel('X 坐标')
+    plt.ylabel('Y 坐标')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend()
+    plt.axis('equal')
+    
+    plt.show()
 
 ###测试脚本如下
 if __name__ == "__main__":
+    '''
     print("主控节点正在运行,ip地址为:",socket.gethostbyname(socket.gethostname()))
     #reciever.listen(port = 9999)
     calculator = calculator()
     location = calculator.calculate(angle1 = math.radians(30.0),angle2 = math.radians(300.0),distance = 100.0)
     print("目标的坐标为:",location)
+    '''
+    '''
+    test_track = []
+    for t in range(0, 100):
+        angle = t * 0.1
+        # 半径随时间增大，形成螺旋
+        r = 5 + 0.05 * t 
+        x = r * math.cos(angle)
+        y = r * math.sin(angle)
+        test_track.append([(x, y), t])
+
+    # 调用函数
+    drawplt(test_track)
+    '''
