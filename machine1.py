@@ -4,7 +4,7 @@
 #负责辐射源波形的生成
 #接收两个侧向站上传的测角结果==>已经实现从一个侧向站接收。考虑通过多线程同时接收两个侧向站的测角结果
 #进行双站交叉定位==>calculator.calculate()函数已经实现根据角度计算目标坐标,应继续编写程序将角度数据从接收到的数据中取出传递给给该数据。目前计划将两个测向节点的数据分别存储在两个列表中，根据时间戳的先后顺序排序并依次取出进行交叉定位,如果某个时刻只有一个测向站的数据则暂不进行定位，后续再进行插值处理。
-#显示真实轨迹与定位轨迹
+#显示真实轨迹与定位轨迹==>部分完成
 #统计并分析定位误差
 
 import numpy as np
@@ -13,7 +13,7 @@ import matplotlib.patches as mpatches
 from matplotlib.path import Path
 import socket,math,time
 plt.rcParams['font.family'] = 'SimHei'
-class reciever():
+class reciever():  #接收器类，负责监听并接收从测向节点发送过来的数据
     def __init__(self):
         pass
     
@@ -26,7 +26,7 @@ class reciever():
             data = machine2.recv(1024)
             print(f"revFrom{addr}Data: {data.decode()}")
     
-class calculator():
+class calculator(): #计算器类，负责根据测向节点上传的测角结果进行交叉定位以及误差分析等其它计算功能
     def __init__(self):
         self.reciever = reciever()
         
@@ -106,8 +106,8 @@ if __name__ == "__main__":
     '''
     print("主控节点正在运行,ip地址为:",socket.gethostbyname(socket.gethostname()))
     #reciever.listen(port = 9999)
-    calculator = calculator()
-    location = calculator.calculate(angle1 = math.radians(30.0),angle2 = math.radians(300.0),distance = 100.0)
+    cal = calculator()
+    location = cal.calculate(angle1 = math.radians(30.0),angle2 = math.radians(300.0),distance = 100.0)
     print("目标的坐标为:",location)
     '''
     '''
