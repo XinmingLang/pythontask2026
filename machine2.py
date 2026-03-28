@@ -114,7 +114,7 @@ class base():
             y.append(yi)
             print("y",i,yi)
             '''
-        self.show_sum_pattern(Xt)
+        #self.show_sum_pattern(Xt)
         #self.show_difference_pattern(Xt)
         return Xt#,y
     
@@ -254,7 +254,6 @@ class sender():
         machine.connect((target,data.get("port",9999)))
         machine.send(str(data).encode())
         
-    
 ##测试脚本如下
 if __name__ == "__main__":
     '''
@@ -267,7 +266,7 @@ if __name__ == "__main__":
     cal = calculator()
     cal.calculate(motion_type= 'line',freq = 1,modulation_type = 'FM',loc = (0,0),v = (1,1))
     b = base(1,8,1)
-    Xt = b.signal_construct(0,[30])
+    Xt = b.signal_construct(0,[30,40,50])
     ma = b.find_peak_angle(Xt)
     angle = b.measure_angle_local_search(Xt,ma)
     print(angle)
