@@ -18,7 +18,7 @@ class base():
         self._ele_distance = ele_distance
         self._number = number
 
-    def generate_alpha(self,theta:float,lamda:float = 2.0,):
+    def generate_alpha(self,theta:float|np.float32,lamda:float = 2.0,):
         alpha = np.ones(self.element_num, dtype=complex)
         for i in range(self.element_num-1):
             alpha[i+1]=alpha[i]*np.exp(1j*2*np.pi*self._ele_distance*np.sin(np.radians(theta))/lamda)
@@ -207,35 +207,68 @@ class calculator():
     def __init__(self):
         pass
     
-    def calculate(self,motion_type = "line",freq:float = c/2,modulation_type:str = 'CW',**params):
-        '''motion_type:目标运动类型，可选'line'或'circle'\n
+    def calculate(self,motion_type = 'line',**params):
+        '''motion_type:目标运动类型，可选'line'直线运动或'circle'匀速圆周运动\n
+        params:其它参数。如果运动类型为'line',则需要给出'loc':初位置,'a'加速度和'v'初速度,两个量都是二维列表向量;如果运动类型为'circle',则需要给出给出参数'center'圆心坐标,'radius':半径,'theta':初相位和'w':角速度\n
+        此外,还可以提供:'Sr':'采样率'等参数'''
+        #return np.random.uniform(0,360)  #测试用,应编写程序根据主控节点的参数生成阵列接收数据并计算测角结果
+        time_span = params.get('SDuration',10)
+        Sr = params.get('Sr', 1000)
+        t_axis = np.arange(0, time_span, 1/Sr)
+        if motion_type == "line":
+            #模拟目标运动为直线运动，生成一连串位置坐标
+            loc = np.array(params['loc'])
+            v = params['v']
+            a = params['a']
+            positions = loc.reshape(1,2) + np.outer(t_axis , v) + 0.5 * np.outer(t_axis**2 , a)
+            print(positions)
+        elif motion_type == "circle":
+            #模拟目标运动为圆周运动
+            center = np.array(params['center'])
+            radius = params['radius']
+            w = params['w']
+            theta0 = params['theta']
+            positions = center.reshape(2,1) + radius*np.array([np.cos(theta0+w*t_axis),np.sin(theta0+w*t_axis)])
+            positions = positions.T
+            print(positions)
+        return t_axis,positions
+    def emision(self,modulation_type:str = 'CW',freq:float = c/2,**params):
+        '''modulation_type:调制方式，可选'CW','AM'或'FM'\n
         freq:发射频率\n
-        modulation_type:调制方式，可选'CW','AM'或'FM'\n
-        params:其它参数。如果运动类型为'line',则需要给出'loc':初位置,和'v'初速度,两个量都是二维向量;如果运动类型为'circle',则需要给出给出参数'center'圆心坐标,'radius':半径和'w':角速度\n
-        此外,还可以提供:'Cf':载频,\n
-        'Sr':'采样率',\n
+        提供:'Cf':载频,\n
         'Bw':'带宽',\n
         'f':'调制频率',\n
         'SDuration':'信号时长'\n
+        'Sr':'采样率'\n
+        'm':调制指数(AM)\n
+        'beta'调制指数(FM)\n
         等参数'''
-        #return np.random.uniform(0,360)  #测试用,应编写程序根据主控节点的参数生成阵列接收数据并计算测角结果
-        if type == "line":
-            #模拟目标运动为直线运动
-            pass
-        if type == "circle":
-            #模拟目标运动为圆周运动
-            pass
-            
+        Bw = params.get('Bw', 100)
+        f_mod = params.get('f', 10)
+        Cf = params.get('Cf', 1e9)
+        Sr = params.get('Sr', 1000)
+        time_span = params.get('SDuration',10)
+        t = np.arange(0, time_span, 1/Sr)
         if modulation_type == "CW":
             #模拟连续波信号
-            pass
-        if modulation_type == "AM":
+            #以余弦信号为例
+            signal = np.cos(2 * np.pi * freq * t)
+        elif modulation_type == "AM":
             #模拟幅度调制信号
-            pass
-        if modulation_type == "FM":
+            m = 0.5 
+            # 调制波 (包络)
+            modulating_wave = 1 + m * np.cos(2 * np.pi * f_mod * t)
+            # 载波
+            carrier_wave = np.cos(2 * np.pi * freq * t)
+            # 相乘得到 AM 信号
+            signal = modulating_wave * carrier_wave
+        elif modulation_type == "FM":
             #模拟频率调制信号
-            pass
-    
+            beta = 5.0 
+            # 瞬时相位 = 载波相位 + 调制引起的相位偏移
+            phase = 2 * np.pi * freq * t + beta * np.sin(2 * np.pi * f_mod * t)
+            signal = np.cos(phase)
+        return t,signal
 class sender():
     def __init__(self):
         pass
@@ -247,7 +280,7 @@ class sender():
         ```
         ip = target_ip, angle = measured_angle,time = time.time(),port = target_port\n
         ```
-        **注意**:其中angle为以正北为基准,向东为正方向转过的角度。
+        **注意**:其中angle为目标方向与x轴正方向的夹角
         '''
         print(f"向主控节点{target}发送数据: {data}")
         machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -264,9 +297,12 @@ if __name__ == "__main__":
     s.send(target = targetip,ip = hostip,angle = simulated_angle,time = time.time(),port = 9999)
     '''
     cal = calculator()
-    cal.calculate(motion_type= 'line',freq = 1,modulation_type = 'FM',loc = (0,0),v = (1,1))
+    cal.calculate(freq = 1,loc = [0,0],v = [1,1],a=[1,1])
+    cal.calculate(motion_type= 'circle',center = [0,0],radius = 1,theta = 0,w = 1)
+    '''
     b = base(1,8,1)
-    Xt = b.signal_construct(0,[30,40,50])
+    Xt = b.signal_construct(0,[-50,5,40])
     ma = b.find_peak_angle(Xt)
     angle = b.measure_angle_local_search(Xt,ma)
     print(angle)
+    '''
