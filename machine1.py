@@ -15,8 +15,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.path import Path
 import socket,math,time
-
-# 设置 matplotlib 中文字体，避免绘图中文乱码
 plt.rcParams['font.family'] = 'SimHei'
 
 # =========================
@@ -107,44 +105,9 @@ class receiver():
         '''
         buffer = ""
         while True:
-            try:
-                # 每次最多接收1024字节
-                data = client.recv(1024)
-
-                # 如果收到空数据，表示客户端断开连接
-                if not data:
-                    break
-
-                # 累积到缓冲区
-                buffer += data.decode()
-
-                # 这里假设每条JSON数据后面都带一个 '\n'
-                # 这样可以防止一次recv收到多条消息，或者一条消息分多次收到
-                while '\n' in buffer:
-                    # 按行拆分
-                    line, buffer = buffer.split('\n', 1)
-                    line = line.strip()
-
-                    if not line:
-                        continue
-
-                    try:
-                        # 将JSON字符串转成Python字典
-                        msg = json.loads(line)
-
-                        # 存储到对应测向站的数据列表中
-                        self.store_data(msg)
-
-                        print(f"[接收] 来自{addr}: {msg}")
-                    except json.JSONDecodeError:
-                        print(f"[接收] JSON解析失败: {line}")
-
-            except Exception as e:
-                print(f"[接收] 客户端{addr}异常: {e}")
-                break
-
-        client.close()
-        print(f"[主控节点] 连接关闭: {addr}")
+            machine2,addr = machine.accept()
+            data = machine2.recv(1024)
+            print(f"revFrom{addr}Data: {data.decode()}")
     
 
     def store_data(self, msg:dict):
@@ -191,7 +154,7 @@ class calculator():
     负责：双站交叉定位
     """
     def __init__(self):
-        self.reciever = receiver()
+        self.reciever = reciever()
         
     
     def calculate(self,angle1:float,angle2:float,distance:float = 100.0):
@@ -203,7 +166,7 @@ class calculator():
         '''
         try:
             x = distance*math.tan(angle1)/(math.tan(angle1)-math.tan(angle2))
-            y = x*math.tan(angle1)
+            y = x/math.tan(angle1)
             return (x,y)
         except ZeroDivisionError:
             print("测角结果异常,无法计算目标坐标")
