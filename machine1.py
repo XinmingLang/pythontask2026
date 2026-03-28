@@ -8,27 +8,179 @@
 #统计并分析定位误差
 
 import numpy as np
+import threading as Threading
+import json 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.path import Path
 import socket,math,time
+
+# 设置 matplotlib 中文字体，避免绘图中文乱码
 plt.rcParams['font.family'] = 'SimHei'
-class reciever():
-    def __init__(self):
-        pass
+
+class receiver():
+    """
+    Receiver类负责:
+    1. 在主控节点上开启TCP服务器
+    2. 接收来自两个测向站上传的数据
+    3. 将测向站1和测向站2的数据分别存储到不同列表中
+    4. 提供线程锁，避免多线程环境下数据冲突
+    """
+
+    # host: 主控节点监听地址，0.0.0.0表示监听本机所有网卡
+    # port: TCP监听端口，测向节点需要连接到该端口发送测角数据
+    def __init__(self,host="0.0.0.0",port=9999):
+        
+        self.host = host
+        self.port = port
+        
+        #TCP服务器socket
+        self.server = None
+        
+        #标记监听状态
+        self.Running = False
+        
+        # 分站存储测角数据
+        # 每个元素都是一个字典，例如：
+        # {
+        #   "station_id": 1,
+        #   "target_id": 0,
+        #   "timestamp": 1.0,
+        #   "angle": 0.5236
+        # }
+        self.station1_data = []
+        self.station2_data = []
+
+        #两个点分别保护两个列表
+        self.lock1 = Threading.Lock()
+        self.lock2 = Threading.Lock()
     
     def listen(self,**kwargs):
-        machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        machine.bind(("0.0.0.0",kwargs.get("port",9999)))
-        machine.listen(2)
+        """
+        启动TCP监听服务
+        主线程或后台线程调用本函数后，主控节点开始等待测向站连接
+        """
+        self.server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+        # 允许端口快速复用，避免程序重启后端口被占用
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        #绑定监听地址和端口
+        self.server.bind((self.host,self.port))
+
+        #开始监听,最多运行5个排队连接
+        self.server.listen(5)
+        self.Running = True
+        
+        print(f"[主控节点] 正在监听 {self.host}:{self.port}")
+
+        #持续接受客户端连接
+        while self.Running:
+            '''
+            accept()函数会等待并返回一个客户端连接,返回值是一个元组,包含客户端socket对象和客户端地址。
+            client: 客户端socket对象
+            addr: 客户端地址
+            '''
+            client,addr = self.server.accept()
+
+
+            print(f"[主控节点] 已连接 {addr}")
+        
+            '''
+            每接入一个客户端，就开启新线程处理客户端连接
+            target: 新线程执行的函数
+            args: 传递给新线程的参数
+            daemon: 新线程是否为守护线程,如果为True,则主线程结束,新线程也会结束
+            '''
+            Threading.Thread(target=self.handle_client,args=(client,addr),daemon=True).start()
+        
+    def handle_client(self, client, addr):
+        '''
+        处理单个客户端连接
+        每个测向站连接后，主控节点会在一个独立线程里持续接收它发来的数据
+        '''
+        buffer = ""
         while True:
-            machine2,addr = machine.accept()
-            data = machine2.recv(1024)
-            print(f"revFrom{addr}Data: {data.decode()}")
+            try:
+                # 每次最多接收1024字节
+                data = client.recv(1024)
+
+                # 如果收到空数据，表示客户端断开连接
+                if not data:
+                    break
+
+                # 累积到缓冲区
+                buffer += data.decode()
+
+                # 这里假设每条JSON数据后面都带一个 '\n'
+                # 这样可以防止一次recv收到多条消息，或者一条消息分多次收到
+                while '\n' in buffer:
+                    # 按行拆分
+                    line, buffer = buffer.split('\n', 1)
+                    line = line.strip()
+
+                    if not line:
+                        continue
+
+                    try:
+                        # 将JSON字符串转成Python字典
+                        msg = json.loads(line)
+
+                        # 存储到对应测向站的数据列表中
+                        self.store_data(msg)
+
+                        print(f"[接收] 来自{addr}: {msg}")
+                    except json.JSONDecodeError:
+                        print(f"[接收] JSON解析失败: {line}")
+
+            except Exception as e:
+                print(f"[接收] 客户端{addr}异常: {e}")
+                break
+
+        client.close()
+        print(f"[主控节点] 连接关闭: {addr}")
     
+
+    def store_data(self, msg:dict):
+        '''
+        按站号将数据存入 station1_data 或 station2_data
+        并按时间戳排序，方便后续配对
+        '''
+        
+        # station_id: 测向站编号，1表示站1，2表示站2
+        station_id = msg.get("station_id", None) 
+
+        # 如果是1号测向站的数据
+        if station_id == 1:
+            # 加锁，避免多线程环境下数据冲突
+            with self.lock1:
+
+                # appending data to list
+                self.station1_data.append(msg)
+
+                # sorting data by timestamp
+                self.station1_data.append(msg)
+                
+                # 按timestamp升序排列
+                self.station1_data.sort(key=lambda x: x["timestamp"])
+                # timestamp: 当前测角对应的时刻，用于双站数据时间匹配
+
+        # 如果是2号测向站的数据
+        elif station_id == 2:
+            with self.lock2:
+                self.station2_data.append(msg)
+                # 按timestamp升序排列
+                self.station2_data.sort(key=lambda x: x["timestamp"])
+
+        else:
+            print(f"[接收] 未知站号: {msg}")
+
+
+
+
 class calculator():
     def __init__(self):
-        self.reciever = reciever()
+        self.reciever = receiver()
         
     
     def calculate(self,angle1:float,angle2:float,distance:float = 100.0):
@@ -40,7 +192,7 @@ class calculator():
         '''
         try:
             x = distance*math.tan(angle1)/(math.tan(angle1)-math.tan(angle2))
-            y = x/math.tan(angle1)
+            y = x*math.tan(angle1)
             return (x,y)
         except ZeroDivisionError:
             print("测角结果异常,无法计算目标坐标")
