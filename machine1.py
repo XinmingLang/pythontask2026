@@ -4,7 +4,7 @@
 #负责辐射源波形的生成
 #接收两个侧向站上传的测角结果==>已经实现从一个侧向站接收。考虑通过多线程同时接收两个侧向站的测角结果
 #进行双站交叉定位==>calculator.calculate()函数已经实现根据角度计算目标坐标,应继续编写程序将角度数据从接收到的数据中取出传递给给该数据。目前计划将两个测向节点的数据分别存储在两个列表中，根据时间戳的先后顺序排序并依次取出进行交叉定位,如果某个时刻只有一个测向站的数据则暂不进行定位，后续再进行插值处理。
-#显示真实轨迹与定位轨迹
+#显示真实轨迹与定位轨迹==>部分完成
 #统计并分析定位误差
 
 import numpy as np
@@ -17,43 +17,9 @@ import socket,math,time
 
 # 设置 matplotlib 中文字体，避免绘图中文乱码
 plt.rcParams['font.family'] = 'SimHei'
-
-class receiver():
-    """
-    Receiver类负责:
-    1. 在主控节点上开启TCP服务器
-    2. 接收来自两个测向站上传的数据
-    3. 将测向站1和测向站2的数据分别存储到不同列表中
-    4. 提供线程锁，避免多线程环境下数据冲突
-    """
-
-    # host: 主控节点监听地址，0.0.0.0表示监听本机所有网卡
-    # port: TCP监听端口，测向节点需要连接到该端口发送测角数据
-    def __init__(self,host="0.0.0.0",port=9999):
-        
-        self.host = host
-        self.port = port
-        
-        #TCP服务器socket
-        self.server = None
-        
-        #标记监听状态
-        self.Running = False
-        
-        # 分站存储测角数据
-        # 每个元素都是一个字典，例如：
-        # {
-        #   "station_id": 1,
-        #   "target_id": 0,
-        #   "timestamp": 1.0,
-        #   "angle": 0.5236
-        # }
-        self.station1_data = []
-        self.station2_data = []
-
-        #两个点分别保护两个列表
-        self.lock1 = Threading.Lock()
-        self.lock2 = Threading.Lock()
+class reciever():  #接收器类，负责监听并接收从测向节点发送过来的数据
+    def __init__(self):
+        pass
     
     def listen(self,**kwargs):
         """
@@ -140,45 +106,7 @@ class receiver():
         client.close()
         print(f"[主控节点] 连接关闭: {addr}")
     
-
-    def store_data(self, msg:dict):
-        '''
-        按站号将数据存入 station1_data 或 station2_data
-        并按时间戳排序，方便后续配对
-        '''
-        
-        # station_id: 测向站编号，1表示站1，2表示站2
-        station_id = msg.get("station_id", None) 
-
-        # 如果是1号测向站的数据
-        if station_id == 1:
-            # 加锁，避免多线程环境下数据冲突
-            with self.lock1:
-
-                # appending data to list
-                self.station1_data.append(msg)
-
-                # sorting data by timestamp
-                self.station1_data.append(msg)
-                
-                # 按timestamp升序排列
-                self.station1_data.sort(key=lambda x: x["timestamp"])
-                # timestamp: 当前测角对应的时刻，用于双站数据时间匹配
-
-        # 如果是2号测向站的数据
-        elif station_id == 2:
-            with self.lock2:
-                self.station2_data.append(msg)
-                # 按timestamp升序排列
-                self.station2_data.sort(key=lambda x: x["timestamp"])
-
-        else:
-            print(f"[接收] 未知站号: {msg}")
-
-
-
-
-class calculator():
+class calculator(): #计算器类，负责根据测向节点上传的测角结果进行交叉定位以及误差分析等其它计算功能
     def __init__(self):
         self.reciever = receiver()
         
@@ -258,8 +186,8 @@ if __name__ == "__main__":
     '''
     print("主控节点正在运行,ip地址为:",socket.gethostbyname(socket.gethostname()))
     #reciever.listen(port = 9999)
-    calculator = calculator()
-    location = calculator.calculate(angle1 = math.radians(30.0),angle2 = math.radians(300.0),distance = 100.0)
+    cal = calculator()
+    location = cal.calculate(angle1 = math.radians(30.0),angle2 = math.radians(300.0),distance = 100.0)
     print("目标的坐标为:",location)
     '''
     '''
