@@ -6,17 +6,18 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import socket,math,time,threading
-from scipy.interpolate import make_interp_spline
-import time
+import socket,math,time,threading,json
+from scipy.signal import find_peaks
+from random import randint
 
 c = 299792458
 
 class base():
-    def __init__(self,number:int,element:int = 8,ele_distance:float = 1.0):
+    def __init__(self,id:int,element:int = 8,ele_distance:float = 1.0,host_id:str = "127.0.0.1"):
         self.element_num = element
         self._ele_distance = ele_distance
-        self._number = number
+        self._id = id
+        self.host_id = host_id
 
     def generate_alpha(self,theta:float|np.float32,lamda:float = 2.0,):
         alpha = np.ones(self.element_num, dtype=complex)
@@ -94,12 +95,12 @@ class base():
         plt.legend()
         plt.show()
     
-    def signal_construct(self,target:int,theta:list):
+    def signal_construct(self,target:int,theta:list,s:list=[1,1,1]):
         X = []
         alpha = []
-        y = []
+        #y = []
         for i in range(len(theta)):
-            Xi,alphai = self.signal_construct_one(i,theta[i],1)
+            Xi,alphai = self.signal_construct_one(i,theta[i],s[i])
             X.append(Xi)
             alpha.append(alphai)
         Xt=np.zeros(self.element_num, dtype=complex)
@@ -118,39 +119,73 @@ class base():
         #self.show_difference_pattern(Xt)
         return Xt#,y
     
-    def find_peak_angle(self, Xt, search_range=(-60, 60), step=0.1):
+    def find_peak_angles(self, Xt, search_range=(-60, 60), step=0.1, min_prominence=0.15):
         """
-        寻找和波束能量最大的角度（修正版）
+        参数:
+        Xt: 接收信号快拍 (阵列协方差矩阵或数据向量)
+        search_range: 搜索范围，默认 (-60, 60)
+        step: 搜索步长，越小精度越高但计算越慢
+        min_prominence: 最小相对显著度 (0-1)，用于过滤噪声和小杂波
+                    值越大，筛选越严格，只留最强峰；值越小，越容易检测到弱目标
         """
+        # 1. 扫描全空域，计算空间谱
         thetas = np.arange(search_range[0], search_range[1], step)
         powers = []
         
         for theta in thetas:
             a = self.generate_alpha(theta)
-            # 关键：计算接收信号 Xt 在该角度的投影能量
-            # 这相当于用 a(theta) 去“匹配” Xt
+            # 波束形成权值
             response = np.dot(a.conjugate(), Xt)
+            # 功率谱
             power = np.abs(response) ** 2
             powers.append(power)
         
-        # 找到最大值的索引
-        max_idx = np.argmax(powers)
-        peak_angle = thetas[max_idx]
+        powers = np.array(powers)
+        
+        # 2. 设置动态阈值
+        # 这里的逻辑是：只要峰值高度超过“最高峰的 min_prominence 倍”，就算作有效目标
+        # 比如 min_prominence=0.1，意味着只要高度超过最高峰的 10%，就被认为是目标
+        global_max_power = np.max(powers)
+        height_threshold = global_max_power * min_prominence
+        
+        # 3. 使用 find_peaks 寻找所有局部最大值
+        # prominence: 显著度，防止把噪声毛刺当成目标
+        # distance: 两个峰之间至少间隔多少个点，防止重复检测同一个目标
+        # height: 只有高于阈值的峰才会被保留
+        peak_indices, properties = find_peaks(
+            powers, 
+            height=height_threshold, 
+            prominence=height_threshold * 0.5, # 显著度设为阈值的一半
+            distance=int(5 / step)             # 假设目标最小间隔 5 度
+        )
+        
+        # 4. 提取角度
+        detected_angles = thetas[peak_indices]
+        
+        # 5. 按能量从大到小排序（可选，方便查看）
+        # 根据 properties['peak_heights'] 进行排序
+        sorted_indices = np.argsort(properties['peak_heights'])[::-1]
+        final_angles = detected_angles[sorted_indices]
+        final_powers = powers[peak_indices][sorted_indices]
+        
+        print(final_angles)
+        
+        
         
         # 可视化验证
         plt.figure(figsize=(10, 5))
         plt.plot(thetas, powers, label='Beam Pattern Power')
-        plt.axvline(peak_angle, color='r', linestyle='--', label=f'Peak @ {peak_angle:.2f}°')
+        for i in range(len(final_angles)):
+            plt.axvline(final_angles[i], color='r', linestyle='--', label=f'Peak @ {final_angles[i]:.2f}°')
         plt.xlabel('Angle (deg)')
         plt.ylabel('Power')
         plt.title('Sum Beam Pattern - Finding Peak')
         plt.legend()
         plt.grid(True)
         plt.show()
-        
-        return peak_angle
+        return final_angles, final_powers
     
-    def measure_angle_local_search(self, Xt, coarse_angle, search_width=10):
+    def measure_angle_local_search(self, Xt:np.ndarray, coarse_angle:float|np.float32, search_width=10):
         """
         修正版：使用偏置差波束
         """
@@ -164,13 +199,14 @@ class base():
         w_diff[mid:] = -w_diff[mid:]
 
         # 2. 计算实际信号的和差比 b (公式 3-3)
-        y1_actual = np.dot(w_sum.conjugate(), Xt)
-        y2_actual = np.dot(w_diff.conjugate(), Xt)
-        
+        y1_actual = np.dot(w_sum.conjugate().T, Xt)
+        y2_actual = np.dot(w_diff.conjugate().T, Xt)
+        if np.abs(y1_actual) < 1e-10:
+            return coarse_angle  # 返回粗略角度作为估计结果
         # 这里用差/和的比值，比 (F1-F2)/(F1+F2) 更敏感
         # 且利用复数相位判断方向
         ratio_actual = y2_actual / y1_actual 
-        b = np.abs(ratio_actual)
+        #b = np.abs(ratio_actual)
         
         # 3. 局部扫描生成理论曲线 k(theta) (公式 3-2)
         thetas = np.linspace(coarse_angle - search_width, coarse_angle + search_width, 1000)
@@ -183,26 +219,100 @@ class base():
             F2 = np.abs(np.dot(w_diff.conjugate(), a))
             
             # 理论比值
-            if F1 != 0:
-                k = F2 / F1 # 对应差/和
+            '''
+            if np.abs(F1) >1e-10:
+                ratio_theory = F2 / F1 # 对应差/和
+                error = np.abs(ratio_actual-ratio_theory)
+                if error < min_error:
+                    min_error = error
+                    estimated_angle = theta
+                    '''
+            if F1 > 1e-10:
+                k = F2 / F1
             else:
                 k = 0
             k_values.append(k)
+        k_values = np.array(k_values)
 
         # 4. 查表匹配
-        min_idx = np.argmin(np.abs(np.array(k_values) - b))
+        min_idx = np.argmin(np.abs(k_values - ratio_actual))
         estimated_angle = thetas[min_idx]
         
         # 5. 符号修正（利用相位）
-        if np.angle(ratio_actual) < 0:
+        #if np.angle(ratio_actual) < 0:
              # 如果相位为负，说明在左边，需要微调（这里简化处理，主要靠查表）
-             pass 
+             #pass 
 
         print(f"中心角度: {coarse_angle:.2f}°")
-        print(f"实测比值 b: {b:.4f}")
+        print(f"实测比值 b: {np.abs(ratio_actual):.4f}")
         print(f"估计角度: {estimated_angle:.2f}°")
         
         return estimated_angle
+    
+    def send_data(self,send_interval=0.1,ip:str = "unknown", angle:np.ndarray = np.zeros(0),t:np.ndarray = np.zeros(0),port:int = 9999):
+        '''
+        **send_interval**:发送数据的时间间隔，单位为秒\n
+        **ip**:主控节点的ip地址\n
+        **angle**:测角结果\n
+        **t**:对应的时间戳\n
+        **port**:主控节点监听的端口号\n
+        **注意**:其中angle为目标方向与x轴正方向的夹角
+        '''
+        try:
+            machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            machine.connect((self.host_id,port))
+            for i in range(len(angle)):
+                message = {
+                    "station_id": ip,
+                    "target_id": 0,
+                    "timestamp": t[i],
+                    "angle": angle[i]
+                }
+                print(f"向主控节点{self.host_id}发送数据: {message}")
+                message = json.dumps(message)
+                machine.send(message.encode("utf-8"))
+                time.sleep(send_interval)
+        except Exception as e:
+            print(f"发送数据时发生错误: {e}")
+        finally:
+            try:
+                machine.close()
+            except Exception as e:
+                print(f"关闭连接时发生错误: {e}")
+            print("数据发送完成，连接已关闭。")
+    
+    def start_signal_processing(self,target_num:int = 1,**params):
+        '''开始信号处理流程\n
+        1.根据主控节点下发的目标状态和信号参数生成阵列接收数据\n
+        2.完成波束的形成、频谱分析、双波束比辐侧向\n
+        3.将每个时刻两个站的测角结果通过TCP/IP协议发送给主控节点\n
+        params:{
+            0:{},
+            1:{},
+            ...}'''
+        cal = calculator()
+        t = np.arange(0, params.get('SDuration',10), 1/params.get('Sr',1000))
+        real_angle = []
+        estimated_angle = []
+        estimated_angles = {}
+        for target_id in sorted(params.keys()):
+            t,positions = cal.calculate(params.get(target_id,{}))
+            for i in range(len(t)):
+                real_angle.append(np.degrees(np.atan2(positions[i][1],positions[i][0])))
+                Xt = self.signal_construct(i,real_angle[i],s=[1,1,1])
+                ma,mp = self.find_peak_angles(Xt)
+                ###这里逻辑有点乱
+                ###现在写的是按目标编号逐个生成实际角度，然后生成实际角度，再生成测量的角度，按编号分类，统一打包发给主控节点；
+                ###但实际应该是按编号逐个生成实际角度和波形，再生成某一时刻测量到的角度和波形，把测量的角度和波形按时间打包发给主控节点，主控节点根据波形给角度标号
+                if len(ma) > 0:
+                    anglei = self.measure_angle_local_search(Xt,ma[0])
+                    estimated_angle.append((anglei,t[i]))##这样得到的estimated_angle是一个列表，包含了该目标在每个时刻的测量角度(列表)和对应的时间戳的元组
+                else:
+                    estimated_angle.append(0)
+                estimated_angles[str(target_id)]=(estimated_angle) #这样操作之后，得到的estimated_angles是一个字典，键是目标编号，值是一个列表，包含了该目标在每个时刻的测量角度
+                estimated_angle.clear()
+        self.send_data(ip = self.host_id,angle = np.array(estimated_angles),t = t,port = params.get('port',9999))
+        
 class calculator():
     def __init__(self):
         pass
@@ -232,7 +342,7 @@ class calculator():
             positions = positions.T
             print(positions)
         return t_axis,positions
-    def emision(self,modulation_type:str = 'CW',freq:float = c/2,**params):
+    def emision(self,function,modulation_type:str = 'CW',freq:float = c/2,**params):
         '''modulation_type:调制方式，可选'CW','AM'或'FM'\n
         freq:发射频率\n
         提供:'Cf':载频,\n
@@ -269,23 +379,19 @@ class calculator():
             phase = 2 * np.pi * freq * t + beta * np.sin(2 * np.pi * f_mod * t)
             signal = np.cos(phase)
         return t,signal
-class sender():
-    def __init__(self):
-        pass
-    
-    def send(self,target:str,**data:dict):
-        '''
-        **target**:主控节点的IP地址\n
-        **data**:可添加测向节点的IP地址、测向结果、时间戳、端口号\n
-        ```
-        ip = target_ip, angle = measured_angle,time = time.time(),port = target_port\n
-        ```
-        **注意**:其中angle为目标方向与x轴正方向的夹角
-        '''
-        print(f"向主控节点{target}发送数据: {data}")
-        machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        machine.connect((target,data.get("port",9999)))
-        machine.send(str(data).encode())
+            
+
+def start_simulation(base_num:int = 2,element_num:list = [8,8],ele_distance:list = [1.0,1.0],host_id:str = "127.0.0.1"):
+    bases = []
+    bases_thread = []
+    for i in range(base_num):
+        bases.append(base(i,element_num[i],ele_distance[i],host_id))
+        bases_thread.append(threading.Thread(
+            target=bases[i].start_signal_processing,
+        ))
+        bases_thread[i].start()
+    for i in range(base_num):
+        bases_thread[i].join()
         
 ##测试脚本如下
 if __name__ == "__main__":
@@ -296,13 +402,21 @@ if __name__ == "__main__":
     simulated_angle = calculator.calculate()
     s.send(target = targetip,ip = hostip,angle = simulated_angle,time = time.time(),port = 9999)
     '''
+    '''
     cal = calculator()
     cal.calculate(freq = 1,loc = [0,0],v = [1,1],a=[1,1])
     cal.calculate(motion_type= 'circle',center = [0,0],radius = 1,theta = 0,w = 1)
     '''
+    ''''''
+    '''
     b = base(1,8,1)
-    Xt = b.signal_construct(0,[-50,5,40])
-    ma = b.find_peak_angle(Xt)
-    angle = b.measure_angle_local_search(Xt,ma)
-    print(angle)
+    real = [randint(-55,-20),randint(-20,20),randint(20,55)]
+    Xt = b.signal_construct(0,real)
+    ma,mp = b.find_peak_angles(Xt)
+    angle = []
+    for a in range(len(ma)):
+        anglei = b.measure_angle_local_search(Xt,ma[a])
+        angle.append(anglei)
+    print(real)
+    print(np.array(angle))
     '''
