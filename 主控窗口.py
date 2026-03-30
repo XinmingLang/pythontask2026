@@ -13,6 +13,62 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class Ui_MainWindow(object):
+    
+    def __init__(self):
+        super().__init__()
+        self.setting_datas = {
+            "point_0":{
+                "array_num": 8,
+                "element_spacing": 0.5,
+                "station_spacing": 100
+            },
+            "point_1":{
+                "array_num": 8,
+                "element_spacing": 0.5,
+                "station_spacing": 100
+            },
+            "target_0":{
+                "activated":True,
+                "movement": "直线运动",
+                "initial_position": (0,0),
+                "initial_velocity": (0,0),
+                "initial_acceleration": (0,0),
+                "circular_motion_center": (0,0),
+                "circular_motion_radius": 0,
+                "circular_motion_angular_velocity": 0,
+                "emission_frequency": 0,
+                "modulation_type": "CW",
+                "emission_power": 0
+            },
+            "target_1":{
+                "activated":True,
+                "movement": "直线运动",
+                "initial_position": (0,0),
+                "initial_velocity": (0,0),
+                "initial_acceleration": (0,0),
+                "circular_motion_center": (0,0),
+                "circular_motion_radius": 0,
+                "circular_motion_angular_velocity": 0,
+                "emission_frequency": 0,
+                "modulation_type": "CW",
+                "emission_power": 0
+            },
+            "target_2":{
+                "activated":True,
+                "movement": "直线运动",
+                "initial_position": (0,0),
+                "initial_velocity": (0,0),
+                "initial_acceleration": (0,0),
+                "circular_motion_center": (0,0),
+                "circular_motion_radius": 0,
+                "circular_motion_angular_velocity": 0,
+                "emission_frequency": 0,
+                "modulation_type": "CW",
+                "emission_power": 0
+            }
+        }
+        self.default_settings = self.setting_datas.copy()
+    
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(800,600)
@@ -56,34 +112,34 @@ class Ui_MainWindow(object):
         self.lineEdit_3.setReadOnly(True)
         self.lineEdit_3.setObjectName("lineEdit_3")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lineEdit_3)
-        self.label_7 = QtWidgets.QLabel(self.groupBox)
-        self.label_7.setObjectName("label_7")
-        self.formLayout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.label_7)
+        self.label_4 = QtWidgets.QLabel(self.groupBox)
+        self.label_4.setObjectName("label_7")
+        self.formLayout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.label_4)
         self.lineEdit_4 = QtWidgets.QLineEdit(self.groupBox)
         self.lineEdit_4.setReadOnly(False)
         self.lineEdit_4.setObjectName("lineEdit_4")
         self.formLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.lineEdit_4)
-        self.label_4 = QtWidgets.QLabel(self.groupBox)
-        self.label_4.setObjectName("label_4")
-        self.formLayout.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.label_4)
+        self.label_5 = QtWidgets.QLabel(self.groupBox)
+        self.label_5.setObjectName("label_5")
+        self.formLayout.setWidget(6, QtWidgets.QFormLayout.LabelRole, self.label_5)
         self.comboBox_2 = QtWidgets.QComboBox(self.groupBox)
         self.comboBox_2.setObjectName("comboBox_2")
         self.comboBox_2.addItem("")
         self.comboBox_2.addItem("")
         self.comboBox_2.addItem("")
         self.formLayout.setWidget(6, QtWidgets.QFormLayout.FieldRole, self.comboBox_2)
-        self.label_5 = QtWidgets.QLabel(self.groupBox)
-        self.label_5.setObjectName("label_5")
-        self.formLayout.setWidget(8, QtWidgets.QFormLayout.LabelRole, self.label_5)
+        self.label_6 = QtWidgets.QLabel(self.groupBox)
+        self.label_6.setObjectName("label_6")
+        self.formLayout.setWidget(8, QtWidgets.QFormLayout.LabelRole, self.label_6)
         self.comboBox_4 = QtWidgets.QComboBox(self.groupBox)
         self.comboBox_4.setObjectName("comboBox_4")
         self.comboBox_4.addItem("")
         self.comboBox_4.addItem("")
         self.formLayout.setWidget(8, QtWidgets.QFormLayout.FieldRole, self.comboBox_4)
-        self.label_6 = QtWidgets.QLabel(self.groupBox)
-        self.label_6.setText("")
-        self.label_6.setObjectName("label_6")
-        self.formLayout.setWidget(12, QtWidgets.QFormLayout.LabelRole, self.label_6)
+        self.label_7 = QtWidgets.QLabel(self.groupBox)
+        self.label_7.setText("")
+        self.label_7.setObjectName("label_7")
+        self.formLayout.setWidget(12, QtWidgets.QFormLayout.LabelRole, self.label_7)
         self.label_8 = QtWidgets.QLabel(self.groupBox)
         self.label_8.setObjectName("label_8")
         self.formLayout.setWidget(9, QtWidgets.QFormLayout.LabelRole, self.label_8)
@@ -93,12 +149,18 @@ class Ui_MainWindow(object):
         self.label_10 = QtWidgets.QLabel(self.groupBox)
         self.label_10.setObjectName("label_10")
         self.formLayout.setWidget(11, QtWidgets.QFormLayout.LabelRole, self.label_10)
+        self.radioButton = QtWidgets.QRadioButton(self.groupBox)
+        self.radioButton.setObjectName("radioButton")
+        self.formLayout.setWidget(12, QtWidgets.QFormLayout.FieldRole, self.radioButton)
         self.lineEdit = QtWidgets.QLineEdit(self.groupBox)
         self.lineEdit.setObjectName("lineEdit")
         self.formLayout.setWidget(9, QtWidgets.QFormLayout.FieldRole, self.lineEdit)
-        self.lineEdit_5 = QtWidgets.QLineEdit(self.groupBox)
-        self.lineEdit_5.setObjectName("lineEdit_5")
-        self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.lineEdit_5)
+        self.comboBox_5 = QtWidgets.QComboBox(self.groupBox)
+        self.comboBox_5.setObjectName("lineEdit_5")
+        self.comboBox_5.addItem("")
+        self.comboBox_5.addItem("")
+        self.comboBox_5.addItem("")
+        self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.comboBox_5)
         self.lineEdit_6 = QtWidgets.QLineEdit(self.groupBox)
         self.lineEdit_6.setObjectName("lineEdit_6")
         self.formLayout.setWidget(11, QtWidgets.QFormLayout.FieldRole, self.lineEdit_6)
@@ -290,6 +352,9 @@ class Ui_MainWindow(object):
         self.pushButton_3 = QtWidgets.QPushButton(self.groupBox_2)
         self.pushButton_3.setObjectName("pushButton_3")
         self.horizontalLayout_3.addWidget(self.pushButton_3)
+        self.labelx = QtWidgets.QLabel(self.groupBox_2)
+        self.labelx.setObjectName("labelx")
+        self.verticalLayout_2.addWidget(self.labelx)
         self.verticalLayout_2.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_4.setObjectName("horizontalLayout_4")
@@ -320,26 +385,14 @@ class Ui_MainWindow(object):
         self.menu = QtWidgets.QMenu(self.menuBar)
         self.menu.setObjectName("menu")
         MainWindow.setMenuBar(self.menuBar)
-        self.actionMainPointSetting = QtWidgets.QAction(MainWindow)
-        self.actionMainPointSetting.setObjectName("actionMainPointSetting")
-        self.actionMeseaurePointSetting = QtWidgets.QAction(MainWindow)
-        self.actionMeseaurePointSetting.setObjectName("actionMeseaurePointSetting")
-        self.actionTargetSetting = QtWidgets.QAction(MainWindow)
-        self.actionTargetSetting.setObjectName("actionTargetSetting")
-        self.actionSaveSettings = QtWidgets.QAction(MainWindow)
-        self.actionSaveSettings.setObjectName("actionSaveSettings")
-        self.actionSaveImage = QtWidgets.QAction(MainWindow)
-        self.actionSaveImage.setObjectName("actionSaveImage")
-        self.actionSaveForm = QtWidgets.QAction(MainWindow)
-        self.actionSaveForm.setObjectName("actionSaveForm")
         self.SaveImage = QtWidgets.QAction(MainWindow)
         self.SaveImage.setObjectName("SaveImage")
-        self.actionSaveSettings_2 = QtWidgets.QAction(MainWindow)
-        self.actionSaveSettings_2.setObjectName("actionSaveSettings_2")
+        self.actionSaveSettings = QtWidgets.QAction(MainWindow)
+        self.actionSaveSettings.setObjectName("actionSaveSettings_2")
         self.actionLoadSettings = QtWidgets.QAction(MainWindow)
         self.actionLoadSettings.setObjectName("actionLoadSettings")
         self.menu.addAction(self.SaveImage)
-        self.menu.addAction(self.actionSaveSettings_2)
+        self.menu.addAction(self.actionSaveSettings)
         self.menu.addAction(self.actionLoadSettings)
         self.menuBar.addAction(self.menu.menuAction())
 
@@ -353,16 +406,21 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "测向节点编号"))
         self.comboBox.setItemText(0, _translate("MainWindow", "0"))
         self.comboBox.setItemText(1, _translate("MainWindow", "1"))
+        self.comboBox.setCurrentIndex(0)
+        self.comboBox.currentTextChanged.connect(self.change_point_text)
         self.label_2.setText(_translate("MainWindow", "阵列单元数"))
         self.label_3.setText(_translate("MainWindow", "单元间距"))
-        self.label_7.setText(_translate("MainWindow", "测向站间距"))
-        self.label_4.setText(_translate("MainWindow", "目标编号"))
+        self.label_4.setText(_translate("MainWindow", "测向站间距"))
+        self.label_5.setText(_translate("MainWindow", "目标编号"))
         self.comboBox_2.setItemText(0, _translate("MainWindow", "0"))
         self.comboBox_2.setItemText(1, _translate("MainWindow", "1"))
         self.comboBox_2.setItemText(2, _translate("MainWindow", "2"))
-        self.label_5.setText(_translate("MainWindow", "运动方式"))
+        self.comboBox_2.currentTextChanged.connect(self.change_target_text)
+        self.label_6.setText(_translate("MainWindow", "运动方式"))
         self.comboBox_4.setItemText(0, _translate("MainWindow", "直线运动"))
         self.comboBox_4.setItemText(1, _translate("MainWindow", "曲线运动"))
+        self.comboBox_4.setCurrentText(_translate("MainWindow", self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["movement"]))
+        self.comboBox_4.currentTextChanged.connect(self.change_target_movement)
         self.label_8.setText(_translate("MainWindow", "发射频率"))
         self.label_9.setText(_translate("MainWindow", "调制方式"))
         self.label_10.setText(_translate("MainWindow", "发射功率"))
@@ -386,9 +444,15 @@ class Ui_MainWindow(object):
         self.label_26.setText(_translate("MainWindow", "Y"))
         self.groupBox_2.setTitle(_translate("MainWindow", "系统控制"))
         self.pushButton_2.setText(_translate("MainWindow", "开始定位"))
+        self.pushButton_2.clicked.connect(self.start_positioning)
         self.pushButton.setText(_translate("MainWindow", "停止定位"))
-        self.pushButton_4.setText(_translate("MainWindow", "清空设置"))
-        self.pushButton_3.setText(_translate("MainWindow", "确认设置"))
+        self.pushButton.clicked.connect(self.stop_positioning)
+        self.pushButton_4.setText(_translate("MainWindow", "恢复默认设置"))
+        self.pushButton_4.clicked.connect(self.clear_settings)
+        self.pushButton_3.setText(_translate("MainWindow", "确认当前设置"))
+        self.pushButton_3.clicked.connect(self.confirm_settings)
+        self.labelx.setText(_translate("MainWindow", "确认设置只能更改已选中节点和目标的设置,其它节点和目标除测向节点间距外需要另行选择并确认.如果需要将设置保存成文件，请在菜单栏选择保存设置。"))
+        self.labelx.setWordWrap(True)
         self.comboBox_3.setItemText(0, _translate("MainWindow", "运动轨迹"))
         self.comboBox_3.setItemText(1, _translate("MainWindow", "侧向站位置与朝向"))
         self.comboBox_3.setItemText(2, _translate("MainWindow", "侧向站测角结果"))
@@ -396,18 +460,137 @@ class Ui_MainWindow(object):
         self.comboBox_3.setItemText(4, _translate("MainWindow", "波束输出频谱"))
         self.comboBox_3.setItemText(5, _translate("MainWindow", "定位误差随时间变化"))
         self.comboBox_3.setItemText(6, _translate("MainWindow", "误差统计图表"))
+        self.comboBox_3.currentTextChanged.connect(self.change_diaplay_image)
+        self.comboBox_5.setItemText(0, _translate("MainWindow", "CW"))
+        self.comboBox_5.setItemText(1, _translate("MainWindow", "AM"))
+        self.comboBox_5.setItemText(2, _translate("MainWindow", "FM"))
         self.pushButton_5.setText(_translate("MainWindow", "展示图像"))
+        self.pushButton_5.clicked.connect(self.show_image)
         self.menu.setTitle(_translate("MainWindow", "文件"))
-        self.actionMainPointSetting.setText(_translate("MainWindow", "主控节点设置"))
-        self.actionMeseaurePointSetting.setText(_translate("MainWindow", "测向节点设置"))
-        self.actionTargetSetting.setText(_translate("MainWindow", "目标设置"))
-        self.actionSaveSettings.setText(_translate("MainWindow", "保存设置"))
-        self.actionSaveImage.setText(_translate("MainWindow", "保存图像"))
-        self.actionSaveForm.setText(_translate("MainWindow", "保存图表"))
         self.SaveImage.setText(_translate("MainWindow", "保存图像"))
-        self.actionSaveSettings_2.setText(_translate("MainWindow", "保存设置"))
+        self.SaveImage.triggered.connect(self.save_image)
+        self.actionSaveSettings.setText(_translate("MainWindow", "保存设置"))
+        self.actionSaveSettings.triggered.connect(self.save_settings)
         self.actionLoadSettings.setText(_translate("MainWindow", "加载设置"))
+        self.actionLoadSettings.triggered.connect(self.load_settings)
+        self.radioButton.setText(_translate("MainWindow", "激活目标"))
+        self.radioButton.setChecked(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["activated"])
+        self.radioButton.toggled.connect(self.toggle_target_activation)
+        self.change_point_text(self.comboBox.currentText())
+        self.change_target_text(self.comboBox_2.currentText())
+        self.change_target_movement(self.comboBox_4.currentText())
 
+    def change_point_text(self,current_text):
+        print(f"测向节点编号改变为{current_text}")
+        self.radioButton.setChecked(self.setting_datas[f"target_{current_text}"]["activated"])
+        self.lineEdit_2.setText(str(self.setting_datas[f"point_{self.comboBox_2.currentText()}"]["array_num"]))
+        self.lineEdit_3.setText(str(self.setting_datas[f"point_{self.comboBox_2.currentText()}"]["element_spacing"]))
+        self.lineEdit_4.setText(str(self.setting_datas[f"point_{self.comboBox_2.currentText()}"]["station_spacing"]))
+    
+    def toggle_target_activation(self,checked):
+        if checked:
+            print("目标已激活")
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["activated"] = True
+        else:
+            print("目标已禁用")
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["activated"] = False
+            
+        print(f"当前目标状态：{self.setting_datas[f'target_{self.comboBox_2.currentText()}']['activated']}")
+    
+    def change_target_text(self,current_text):
+        print(f"目标编号改变为{current_text}")
+        self.radioButton.setChecked(self.setting_datas[f"target_{current_text}"]["activated"])
+        self.comboBox_4.setCurrentText(self.setting_datas[f"target_{current_text}"]["movement"])
+        self.lineEdit_19.setText(str(self.setting_datas[f"target_{current_text}"]["emission_frequency"]))
+        self.comboBox_5.setCurrentText(self.setting_datas[f"target_{current_text}"]["modulation_type"])
+        self.lineEdit_6.setText(str(self.setting_datas[f"target_{current_text}"]["emission_power"]))
+        self.change_target_movement(self.setting_datas[f"target_{current_text}"]["movement"])
+        self.comboBox_5.setCurrentText(self.setting_datas[f"target_{current_text}"]["modulation_type"])
+        self.lineEdit.setText(str(self.setting_datas[f"target_{current_text}"]["emission_frequency"]))
+        
+    
+    def change_target_movement(self,current_text):
+        print(f"运动方式改变为{current_text}")
+        if current_text == "直线运动":
+            self.groupBox_3.setEnabled(True)
+            self.groupBox_4.setEnabled(False)
+            self.lineEdit_12.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_position"][0]))
+            self.lineEdit_13.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_position"][1]))
+            self.lineEdit_14.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_velocity"][0]))
+            self.lineEdit_15.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_velocity"][1]))
+            self.lineEdit_16.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_acceleration"][0]))
+            self.lineEdit_17.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_acceleration"][1]))
+        elif current_text == "曲线运动":
+            self.groupBox_3.setEnabled(False)
+            self.groupBox_4.setEnabled(True)
+            self.lineEdit_10.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_center"][0]))
+            self.lineEdit_11.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_center"][1]))
+            self.lineEdit_7.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_radius"]))
+            self.lineEdit_18.setText(str(self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_angular_velocity"]))
+    
+    def show_image(self):
+        print("展示图像")
+    
+    def save_image(self):
+        print("保存图像")
+    
+    def change_diaplay_image(self,current_text):
+        print(f"显示图像改变为{current_text}")
+    
+    def save_settings(self):
+        print("保存设置")
+        with open("settings.txt","w") as f:
+            f.write(str(self.setting_datas))
+            print("设置已保存到settings.txt")
+            f.close()
+    
+    def clear_settings(self):
+        print("恢复默认设置")
+        self.setting_datas = self.default_settings.copy()
+        self.change_point_text(self.comboBox.currentText())
+        self.change_target_text(self.comboBox_2.currentText())
+    
+    def confirm_settings(self):
+        print("确认设置")
+        self.setting_datas[f"point_{self.comboBox.currentText()}"]["array_num"] = int(self.lineEdit_2.text())
+        self.setting_datas[f"point_{self.comboBox.currentText()}"]["element_spacing"] = float(self.lineEdit_3.text())
+        self.setting_datas[f"point_1"]["station_spacing"] = float(self.lineEdit_4.text())
+        self.setting_datas[f"point_0"]["station_spacing"] = float(self.lineEdit_4.text())
+        self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["movement"] = self.comboBox_4.currentText()
+        self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["emission_frequency"] = float(self.lineEdit_19.text())
+        self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["modulation_type"] = self.comboBox_5.currentText()
+        self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["emission_power"] = float(self.lineEdit_6.text())
+        if self.comboBox_4.currentText() == "直线运动":
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_position"] = [float(self.lineEdit_12.text()),float(self.lineEdit_13.text())]
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_velocity"] = [float(self.lineEdit_14.text()),float(self.lineEdit_15.text())]
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["initial_acceleration"] = [float(self.lineEdit_16.text()),float(self.lineEdit_17.text())]
+        elif self.comboBox_4.currentText() == "曲线运动":
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_center"] = [float(self.lineEdit_10.text()),float(self.lineEdit_11.text())]
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_radius"] = float(self.lineEdit_7.text())
+            self.setting_datas[f"target_{self.comboBox_2.currentText()}"]["circular_motion_angular_velocity"] = float(self.lineEdit_18.text())
+    
+    def load_settings(self):
+        print("加载设置")
+        try:
+            with open("settings.txt","r") as f:
+                self.setting_datas = eval(f.read())
+                print("设置已从settings.txt加载")
+                self.change_point_text(self.comboBox.currentText())
+                self.change_target_text(self.comboBox_2.currentText())
+                f.close()
+        except FileNotFoundError:
+            print("未找到settings.txt,无法加载设置")
+            message_box = QtWidgets.QMessageBox()
+            message_box.setIcon(QtWidgets.QMessageBox.Warning)
+            message_box.setWindowTitle("错误")
+            message_box.setText("未找到settings.txt,无法加载设置")
+            message_box.exec_()
+    
+    def start_positioning(self):
+        print("开始定位")
+    
+    def stop_positioning(self):
+        print("停止定位")
 if __name__=='__main__':
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
