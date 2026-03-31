@@ -7,35 +7,37 @@ import time
 from typing import Any, Dict, Optional
 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 import numpy as np
+import matplotlib.figure as mpl_figure
 
 
 # ========================= 系统配置 =========================
 class SystemConfig:
-    def __init__(self):
-        self.target_num = 3
+    def __init__(self,**params):
+        self.target_num = params.get("activated_target_num", 3)
 
-        self.station_distance = 20000.0
+        self.station_distance = params.get("point_0",{"station_spacing":2000.0}).get("station_spacing",2000.0)
         self.station_angle_diff = 0.0
 
-        self.array_elem_num = 8
-        self.array_spacing = 6.0
+        self.array_elem_num = params.get("point_0",{"array_num":8}).get("array_num",8)
+        self.array_spacing = params.get("element_spacing",6)
 
         self.angle_range = (-60.0, 60.0)
         self.data_update_interval = 0.5
 
         self.radiation_params = {
-            0: {
-                "fc_if": 25000.0,
-                "fc_rf": 1.0e9,
-                "sample_rate": 200000.0,
-                "mod_type": "AM",
-                "mod_freq": 2000.0,
-                "amplitude": 1.0,
-                "snr": 20.0,
-                "signal_duration": 0.02
-            },
-            1: {
+            0: params.get("target_0",{
+                "fc_if":25000.0,
+                "fc_rf":1.5e9,
+                "sample_rate":200000.0,
+                "mod_type":"AM",
+                "mod_freq":5000.0,
+                "amplitude":1.0,
+                "snr":20.0,
+                "signal_duration":0.02
+            }),
+            1: params.get("target_1",{
                 "fc_if": 32000.0,
                 "fc_rf": 1.2e9,
                 "sample_rate": 200000.0,
@@ -44,8 +46,8 @@ class SystemConfig:
                 "amplitude": 1.1,
                 "snr": 18.0,
                 "signal_duration": 0.02
-            },
-            2: {
+            }),
+            2: params.get("target_2",{
                 "fc_if": 18000.0,
                 "fc_rf": 0.9e9,
                 "sample_rate": 200000.0,
@@ -54,34 +56,104 @@ class SystemConfig:
                 "amplitude": 0.95,
                 "snr": 16.0,
                 "signal_duration": 0.02
-            }
+            })
         }
 
         self.motion_params = {
-            0: {
+            0: params.get("target_0",{
                 "motion_mode": "line",
                 "start_pos": (30000.0, 30000.0),
                 "velocity": 2500.0,
                 "direction": 35.0,
                 "total_time": 10.0
-            },
-            1: {
+            }),
+            1: params.get("target_1",{
                 "motion_mode": "arc",
                 "arc_center": (20000.0, 40000.0),
                 "arc_radius": 12000.0,
                 "arc_omega": 0.5,
                 "arc_phase0": -math.pi / 2,
                 "total_time": 10.0
-            },
-            2: {
+            }),
+            2: params.get("target_2",{
                 "motion_mode": "line",
                 "start_pos": (10000.0, 50000.0),
                 "velocity": 1800.0,
                 "direction": -20.0,
                 "total_time": 10.0
-            }
+            })
+        }
+        print("[SystemConfig] 系统配置已初始化:\n", json.dumps(self.to_dict(), indent=2))
+    def update(self,**params):
+        self.target_num = params.get("activated_target_num", 3)
+
+        self.station_distance = params.get("point_0",{"station_spacing":2000.0}).get("station_spacing",2000.0)
+        self.station_angle_diff = 0.0
+
+        self.array_elem_num = params.get("point_0",{"array_num":8}).get("array_num",8)
+        self.array_spacing = params.get("element_spacing",6)
+
+        self.angle_range = (-60.0, 60.0)
+        self.data_update_interval = 0.5
+
+        self.radiation_params = {
+            0: params.get("target_0",{
+                "fc_if":25000.0,
+                "fc_rf":1.5e9,
+                "sample_rate":200000.0,
+                "mod_type":"AM",
+                "mod_freq":5000.0,
+                "amplitude":1.0,
+                "snr":20.0,
+                "signal_duration":0.02
+            }),
+            1: params.get("target_1",{
+                "fc_if": 32000.0,
+                "fc_rf": 1.2e9,
+                "sample_rate": 200000.0,
+                "mod_type": "FM",
+                "mod_freq": 3000.0,
+                "amplitude": 1.1,
+                "snr": 18.0,
+                "signal_duration": 0.02
+            }),
+            2: params.get("target_2",{
+                "fc_if": 18000.0,
+                "fc_rf": 0.9e9,
+                "sample_rate": 200000.0,
+                "mod_type": "CW",
+                "mod_freq": 1000.0,
+                "amplitude": 0.95,
+                "snr": 16.0,
+                "signal_duration": 0.02
+            })
         }
 
+        self.motion_params = {
+            0: params.get("target_0",{
+                "motion_mode": "line",
+                "start_pos": (30000.0, 30000.0),
+                "velocity": 2500.0,
+                "direction": 35.0,
+                "total_time": 10.0
+            }),
+            1: params.get("target_1",{
+                "motion_mode": "arc",
+                "arc_center": (20000.0, 40000.0),
+                "arc_radius": 12000.0,
+                "arc_omega": 0.5,
+                "arc_phase0": -math.pi / 2,
+                "total_time": 10.0
+            }),
+            2: params.get("target_2",{
+                "motion_mode": "line",
+                "start_pos": (10000.0, 50000.0),
+                "velocity": 1800.0,
+                "direction": -20.0,
+                "total_time": 10.0
+            })
+        }
+        print("[SystemConfig] 系统配置已更新:\n", json.dumps(self.to_dict(), indent=2))
     def print_config(self):
         print("========== 系统配置 ==========")
         print(f"目标数: {self.target_num}")
@@ -183,7 +255,7 @@ class TargetSimulator:
 
 # ========================= 接收端 =========================
 class Receiver:
-    def __init__(self, host="0.0.0.0", port=9999):
+    def __init__(self, host=socket.gethostbyname(socket.gethostname()), port=9999):
         self.host = host
         self.port = port
         self.server: Optional[socket.socket] = None
@@ -428,7 +500,7 @@ class ErrorAnalyzer:
 
 
 # ========================= 可视化 =========================
-class ResultVisualizer:
+class ResultVisualizer(FigureCanvasQTAgg):
     def __init__(self, config: SystemConfig, error_analyzer: ErrorAnalyzer):
         self.config = config
         self.error_analyzer = error_analyzer
@@ -441,9 +513,17 @@ class ResultVisualizer:
         self.station_colors = {1: "#6C49F7", 2: "#C60707"}
         self.target_colors = {0: "#2121BA", 1: "#AF1807", 2: "#006400"}
         self.stat_colors = ["#FF6B6B", "#4ECDC4", "#45B7D1"]
+        
+        fig = mpl_figure.Figure()
+        super().__init__(fig)
+        self.figure.patch.set_facecolor('white')
+        
 
     def draw_all_figures(self, error_result, save_path=None):
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+        #fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+        self.figure.clear()
+        ax1 = self.figure.add_subplot(121)
+        ax2 = self.figure.add_subplot(122)
 
         ax1.scatter(0, 0, c="#6C49F7", marker='^', s=250, label='Station 1',
                     edgecolors='white', linewidths=1.5, zorder=10)
@@ -512,14 +592,17 @@ class ResultVisualizer:
         ax2.grid(True, linestyle='--', alpha=0.35)
         ax2.legend(fontsize=10, loc='best', frameon=True)
 
-        plt.tight_layout()
+        #plt.tight_layout()
+        self.figure.tight_layout()
 
         if save_path is not None:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            self.figure.savefig(save_path, dpi=300, bbox_inches='tight')
 
-        plt.show(block=False)
+        #plt.show(block=False)
+        self.draw()
 
     def draw_error_stat_bar(self, error_stats, save_path=None):
+        self.figure.clear()
         target_ids = sorted([t for t in error_stats.keys() if error_stats[t]["count"] > 0])
 
         means = [error_stats[t]["mean"] for t in target_ids]
@@ -529,10 +612,11 @@ class ResultVisualizer:
         x = np.arange(len(target_ids))
         width = 0.25
 
-        plt.figure(figsize=(10, 6))
-        plt.bar(x - width, means, width, label="平均误差", color=self.stat_colors[0], edgecolor='black', linewidth=0.5)
-        plt.bar(x, rmses, width, label="RMSE", color=self.stat_colors[1], edgecolor='black', linewidth=0.5)
-        plt.bar(x + width, maxs, width, label="最大误差", color=self.stat_colors[2], edgecolor='black', linewidth=0.5)
+        #plt.plot(figsize=(10, 6))
+        ax = self.figure.add_subplot(111)
+        ax.bar(x - width, means, width, label="平均误差", color=self.stat_colors[0], edgecolor='black', linewidth=0.5)
+        ax.bar(x, rmses, width, label="RMSE", color=self.stat_colors[1], edgecolor='black', linewidth=0.5)
+        ax.bar(x + width, maxs, width, label="最大误差", color=self.stat_colors[2], edgecolor='black', linewidth=0.5)
 
         if len(means) > 0 and max(means) > 0:
             for i, v in enumerate(means):
@@ -549,21 +633,23 @@ class ResultVisualizer:
                 if v is not None and v > 0:
                     plt.text(i + width, v + max(maxs) * 0.01, f"{v:.1f}", ha='center', fontsize=9)
 
-        plt.xlabel("目标编号", fontsize=12)
-        plt.ylabel("误差 (m)", fontsize=12)
-        plt.title("多目标定位误差统计对比", fontsize=14, fontweight='bold')
-        plt.xticks(x, [f"目标 {t}" for t in target_ids])
-        plt.legend(fontsize=11)
-        plt.grid(axis='y', alpha=0.3)
-        plt.tight_layout()
+        ax.set_xlabel("目标编号", fontsize=12)
+        ax.set_ylabel("误差 (m)", fontsize=12)
+        ax.set_title("多目标定位误差统计对比", fontsize=14, fontweight='bold')
+        ax.set_xticks(x, [f"目标 {t}" for t in target_ids])
+        ax.legend(fontsize=11)
+        ax.grid(axis='y', alpha=0.3)
+        self.figure.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.show(block=False)
+            self.figure.savefig(save_path, dpi=300, bbox_inches='tight')
+        #plt.show(block=False)
+        self.draw()
 
     def draw_beam_time_waveform(self, save_path=None):
-        fig, axes = plt.subplots(3, 2, figsize=(12, 9))
-        fig.suptitle("波束输出时域波形图（目标×测向站）", fontsize=14, fontweight='bold')
+        self.figure.clear() 
+        axes = self.figure.subplots(3, 2)
+        self.figure.suptitle("波束输出时域波形图（目标×测向站）", fontsize=14, fontweight='bold')
         axes = axes.ravel()
 
         for tid in range(self.config.target_num):
@@ -599,14 +685,16 @@ class ResultVisualizer:
                 axes[idx].set_ylabel("信号幅度", fontsize=9)
                 axes[idx].grid(True, alpha=0.3)
 
-        plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
+        self.figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.show(block=False)
+            self.figure.savefig(save_path, dpi=300, bbox_inches='tight')
+        #plt.show(block=False)
+        self.draw()
 
     def draw_beam_spectrum(self, nfft=1024, save_path=None):
-        fig, axes = plt.subplots(3, 2, figsize=(12, 9))
-        fig.suptitle("波束输出频谱图（FFT）", fontsize=14, fontweight='bold')
+        self.figure.clear()
+        axes = self.figure.subplots(3, 2)
+        self.figure.suptitle("波束输出频谱图（FFT）", fontsize=14, fontweight='bold')
         axes = axes.ravel()
 
         for tid in range(self.config.target_num):
@@ -656,16 +744,17 @@ class ResultVisualizer:
                 axes[idx].grid(True, alpha=0.3)
                 axes[idx].legend(fontsize=8)
 
-        plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
+        self.figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.show(block=False)
+            self.figure.savefig(save_path, dpi=300, bbox_inches='tight')
+        #plt.show(block=False)
+        self.draw()
 
 
 # ========================= 机器1主控 =========================
 class Machine1Master:
-    def __init__(self, receiver_port=9999):
-        self.config = SystemConfig()
+    def __init__(self, receiver_port=9999,**params):
+        self.config = SystemConfig(**params)
         self.target_simulator = TargetSimulator(self.config)
         self.receiver = Receiver(port=receiver_port)
         self.locator = Locator(self.config)

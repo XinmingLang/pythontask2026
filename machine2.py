@@ -249,7 +249,7 @@ class base():
         
         return estimated_angle
     
-    def send_data(self,send_interval=0.1,ip:str = "unknown", angle:np.ndarray = np.zeros(0),t:np.ndarray = np.zeros(0),port:int = 9999):
+    def send_data(self,send_interval=0.1,ip:str = "127.0.0.1", angle:np.ndarray = np.zeros(0),t:np.ndarray = np.zeros(0),port:int = 9999):
         '''
         **send_interval**:发送数据的时间间隔，单位为秒\n
         **ip**:主控节点的ip地址\n
@@ -259,8 +259,8 @@ class base():
         **注意**:其中angle为目标方向与x轴正方向的夹角
         '''
         try:
-            machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            machine.connect((self.host_id,port))
+            self.machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            self.machine.connect((self.host_id,port))
             for i in range(len(angle)):
                 message = {
                     "station_id": ip,
@@ -270,13 +270,13 @@ class base():
                 }
                 print(f"向主控节点{self.host_id}发送数据: {message}")
                 message = json.dumps(message)
-                machine.send(message.encode("utf-8"))
+                self.machine.send(message.encode("utf-8"))
                 time.sleep(send_interval)
         except Exception as e:
             print(f"发送数据时发生错误: {e}")
         finally:
             try:
-                machine.close()
+                self.machine.close()
             except Exception as e:
                 print(f"关闭连接时发生错误: {e}")
             print("数据发送完成，连接已关闭。")
@@ -290,6 +290,15 @@ class base():
             0:{},
             1:{},
             ...}'''
+        try:
+            self.machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            self.machine.connect((self.host_id,params.get('port',9999)))
+        except Exception as e:
+            print(f"连接主控节点时发生错误: {e}")
+            return
+        config = self.machine.recv(1024) #等待主控节点发送开始信号
+        config = json.loads(config.decode("utf-8"))
+        print(f"接收到主控节点的配置: {config}")
         cal = calculator()
         t = np.arange(0, params.get('SDuration',10), 1/params.get('Sr',1000))
         real_angle = []
@@ -381,13 +390,16 @@ class calculator():
         return t,signal
             
 
-def start_simulation(base_num:int = 2,element_num:list = [8,8],ele_distance:list = [1.0,1.0],host_id:str = "127.0.0.1"):
+def start_simulation(base_num:int = 2,element_num:list = [8,8],ele_distance:list = [1.0,1.0],host_id:str = "127.0.0.1",tport  = 9999):
     bases = []
     bases_thread = []
     for i in range(base_num):
         bases.append(base(i,element_num[i],ele_distance[i],host_id))
         bases_thread.append(threading.Thread(
             target=bases[i].start_signal_processing,
+            kwargs = {
+                "port":tport,
+            }
         ))
         bases_thread[i].start()
     for i in range(base_num):
@@ -420,3 +432,4 @@ if __name__ == "__main__":
     print(real)
     print(np.array(angle))
     '''
+    start_simulation(host_id=socket.gethostbyname(socket.gethostname()))
