@@ -280,7 +280,14 @@ class base():
                     }
                     # 发送台站1数据
                     self.machine.sendall((json.dumps(msg_s1) + "\n").encode('utf-8'))
-                    print(f"发送台站1数据: {msg_s1}")
+                    msg_s1_showed = {
+                        "station_id": 1,          # 必须符合 machine1 的接收字段
+                        "target_id": tid,
+                        "timestamp": ts,
+                        "angle": str(90-float(point['angle1'])), # 填入 angle2
+                        "snr": 0.0
+                    }
+                    print(f"发送台站1数据: {msg_s1_showed}")
                     
                     # 3. 构造台站2的数据包 (对应 angle2)
                     msg_s2 = {
@@ -291,13 +298,22 @@ class base():
                         "snr": 0.0
                     }
                     # 发送台站2数据
+                    
                     self.machine.sendall((json.dumps(msg_s2) + "\n").encode('utf-8'))
-                    print(f"发送台站2数据: {msg_s2}")
+                    msg_s2_showed = {
+                        "station_id": 2,          # 必须符合 machine1 的接收字段
+                        "target_id": tid,
+                        "timestamp": ts,
+                        "angle": str(90-float(point['angle2'])), # 填入 angle2
+                        "snr": 0.0
+                    }
+                    print(f"发送台站2数据: {msg_s2_showed}")
                     time.sleep(self.data_update_interval/2)
         except Exception as e:
             print(f"发送数据时发生错误: {e}")
         finally:
             print("数据发送完成")
+            self.machine.close()
             
     def format_data_for_machine1(self, my_calculated_points):
         """
@@ -361,20 +377,20 @@ class base():
                 dy2 = y - station_y2
                 #base_noise = 100.0  # 基础系数，用来调整整体误差大小
                 #noise_std = base_noise / (10 ** (self.motion_params.get('snr',2)/ 20.0)) 
-                noise_std = (10 ** (-(self.motion_params.get('snr',2) - 20) / 15000))
+                noise_std = 0.01* (10 ** (-(self.motion_params.get('snr',2) - 20) / 15000))
     
                 # 限制噪声标准差的范围，确保它在 [0.05, 3.0] 之间
                 # 这样即使在最差的信号下，误差也不会失控
-                noise_std = max(1e-7, min(noise_std, 3.0))
+                noise_std = max(0.01, min(noise_std, 3.0))
                 noise1 = np.random.normal(0,noise_std)
                 noise2 = np.random.normal(0,noise_std)
-                # 2. 计算角度 (以正北为0度，右正左负)
+                # 2. 计算角度 (极坐标)
                 # 使用 atan2(dx, dy) 而不是 atan2(dy, dx)
                 angle_rad1 = math.atan2(dy1, dx1)
-                angle_deg1 = float(math.degrees(angle_rad1))#+noise1)
+                angle_deg1 = float(math.degrees(angle_rad1)+noise1)
                 
                 angle_rad2 = math.atan2(dy2, dx2)
-                angle_deg2 = float(math.degrees(angle_rad2))#+noise2)
+                angle_deg2 = float(math.degrees(angle_rad2)+noise2)
                 
                 # 3. 构建新的数据点，保留 timestamp 和 target_id，替换 x,y 为 angle
                 new_point = {
@@ -387,7 +403,7 @@ class base():
                 
             # 将处理好的列表存入新字典
             angle_data[target_id] = angle_list
-        print(f"生成的角度数据: {angle_data}")
+        #print(f"生成的角度数据: {angle_data}")
         return angle_data
     def generate_real_angles(self,pos1:list = [0,0],pos2:list = [2000.0,0]):
         # 假设 machine2 自身的位置 (根据 machine1 中的 station2_pos 设定)
@@ -430,7 +446,7 @@ class base():
                 
             # 将处理好的列表存入新字典
             angle_data[target_id] = angle_list
-        print(f"生成的角度数据: {angle_data}")
+        #print(f"生成的角度数据: {angle_data}")
         return angle_data
     
     def start_signal_processing(self):

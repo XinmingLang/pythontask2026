@@ -403,7 +403,6 @@ class Ui_MainWindow(object):
         self.comboBox_3.addItem("")
         self.comboBox_3.addItem("")
         self.comboBox_3.addItem("")
-        self.comboBox_3.addItem("")
         self.horizontalLayout_4.addWidget(self.comboBox_3)
         self.pushButton_5 = QtWidgets.QPushButton(self.groupBox_2)
         self.pushButton_5.setObjectName("pushButton_5")
@@ -491,10 +490,9 @@ class Ui_MainWindow(object):
         self.labelx.setText(_translate("MainWindow", "确认设置只能更改已选中节点和目标的设置,其它节点和目标除测向节点间距外需要另行选择并确认.如果需要将设置保存成文件，请在菜单栏选择保存设置。"))
         self.labelx.setWordWrap(True)
         self.comboBox_3.setItemText(0, _translate("MainWindow", "运动轨迹和定位误差随时间变化"))
-        self.comboBox_3.setItemText(1, _translate("MainWindow", "侧向站测角结果"))
-        self.comboBox_3.setItemText(2, _translate("MainWindow", "波束输出时域波形图"))
-        self.comboBox_3.setItemText(3, _translate("MainWindow", "波束输出频谱"))
-        self.comboBox_3.setItemText(4, _translate("MainWindow", "误差统计图表"))
+        self.comboBox_3.setItemText(1, _translate("MainWindow", "波束输出时域波形图"))
+        self.comboBox_3.setItemText(2, _translate("MainWindow", "波束输出频谱"))
+        self.comboBox_3.setItemText(3, _translate("MainWindow", "误差统计图表"))
         self.comboBox_3.currentTextChanged.connect(self.change_diaplay_image)
         self.comboBox_5.setItemText(0, _translate("MainWindow", "CW"))
         self.comboBox_5.setItemText(1, _translate("MainWindow", "AM"))
@@ -684,7 +682,7 @@ class Ui_MainWindow(object):
         recv_thread = threading.Thread(target=self.machine.receiver.listen, daemon=True)
         recv_thread.start()
 
-        print("[Machine1] 等待机器2连接...（超时10秒进入演示模式）")
+        print("[Machine1] 等待机器2连接...")
         if not self.running: return
         ok = self.machine.receiver.wait_for_machine2(timeout=None)
         if not self.running: return
@@ -724,6 +722,7 @@ class Ui_MainWindow(object):
             self.machine.error_analyzer.print_error_stats(self.error_stats)
         while self.running:
             time.sleep(1)
+        return 0
     
     def stop_positioning(self):
         print("停止定位")
@@ -732,6 +731,7 @@ class Ui_MainWindow(object):
                 print("定位线程已在运行，正在尝试关闭之前的定位...")
                 self.running = False
                 self.start_thread.join(timeout=5)#type:ignore
+                print("之前的定位线程已成功关闭")
         except Exception as e:
             print(f"停止之前的定位时发生错误: {str(e)}")
 if __name__=='__main__':

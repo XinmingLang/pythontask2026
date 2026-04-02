@@ -17,7 +17,7 @@ class SystemConfig:
     def __init__(self,**params):
         self.target_num = params.get("activated_target_num", 3)
 
-        self.station_distance = params.get("point_0",{"station_spacing":2000.0}).get("station_spacing",2000.0)
+        self.station_distance = params.get("point_0",{"station_spacing":20000.0}).get("station_spacing",20000.0)
         self.station_angle_diff = 0.0
 
         self.array_elem_num = params.get("point_0",{"array_num":8}).get("array_num",8)
@@ -387,8 +387,8 @@ class Locator:
         x1, y1 = p1
         x2, y2 = p2
 
-        d1x, d1y = math.sin(t1), math.cos(t1)
-        d2x, d2y = math.sin(t2), math.cos(t2)
+        d1x, d1y = math.cos(t1), math.sin(t1)
+        d2x, d2y = math.cos(t2), math.sin(t2)
 
         A = np.array([[d1x, -d2x], [d1y, -d2y]], dtype=float)
         b = np.array([x2 - x1, y2 - y1], dtype=float)
@@ -402,7 +402,8 @@ class Locator:
 
         x = x1 + a * d1x
         y = y1 + a * d1y
-        return x, y
+        
+        return x/10.0, y/10.0
 
     def multi_target_locate(self, receiver: Receiver):
         raw = receiver.get_data()
@@ -436,6 +437,7 @@ class Locator:
 
                 x, y = est
                 target_result.append((ts, x, y, a1, a2))
+                print(f"[Locator] 目标{target_id} 时间{ts:.3f}s 站1角度{a1:.2f}° 站2角度{a2:.2f}° -> 估计位置: ({x:.1f}, {y:.1f})")
 
             result[target_id] = target_result
 
