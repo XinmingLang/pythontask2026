@@ -286,6 +286,7 @@ class Receiver:
                 if self.running:
                     print(f"[Machine1-Receiver] 监听异常: {e}")
                 break
+        self.server.close()
 
     def handle_client(self, client: socket.socket):
         buffer = ""
@@ -405,6 +406,7 @@ class Locator:
 
     def multi_target_locate(self, receiver: Receiver):
         raw = receiver.get_data()
+        print(f"[Locator] 获取原始数据: {json.dumps(raw, indent=2)}")
         result = {}
 
         station1_pos = (0.0, 0.0)

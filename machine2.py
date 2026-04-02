@@ -18,13 +18,14 @@ class base():
         self._ele_distance = ele_distance
         self._id = id
         self.host_id = host_id
+        self.running = True
 
     def generate_alpha(self,theta:float|np.float32,lamda:float = 2.0,):
         alpha = np.ones(self.element_num, dtype=complex)
         for i in range(self.element_num-1):
             alpha[i+1]=alpha[i]*np.exp(1j*2*np.pi*self._ele_distance*np.sin(np.radians(theta))/lamda)
         return alpha
-    
+    '''
     def generate_weights(self):
         """生成和波束与差波束的权向量"""
         M = self.element_num
@@ -35,6 +36,7 @@ class base():
         mid = M // 2
         w_diff[mid:] = -1
         return w_sum, w_diff
+        '''
     
     def signal_construct_one(self,target_number:int,theta:float,s:float,lamda:float = 2.0,):
         alpha = self.generate_alpha(theta,lamda)
@@ -52,7 +54,7 @@ class base():
         noise_imag = np.random.randn(self.element_num)
         noise = (noise_real + 1j * noise_imag) / np.sqrt(2)
         return noise
-    
+    '''
     def show_sum_pattern(self, Xt: np.ndarray):
         """绘制和波束方向图"""
         y = []
@@ -94,13 +96,14 @@ class base():
         plt.grid(True)
         plt.legend()
         plt.show()
+        '''
     
     def signal_construct(self,target:int,theta:list,s:list=[1,1,1]):
         X = []
         alpha = []
         #y = []
         for i in range(len(theta)):
-            Xi,alphai = self.signal_construct_one(i,theta[i],s[i])
+            Xi,alphai = self.signal_construct_one(i,theta[i][f'angle{target}'],s[i])
             X.append(Xi)
             alpha.append(alphai)
         Xt=np.zeros(self.element_num, dtype=complex)
@@ -173,6 +176,7 @@ class base():
         
         
         # 可视化验证
+        '''
         plt.figure(figsize=(10, 5))
         plt.plot(thetas, powers, label='Beam Pattern Power')
         for i in range(len(final_angles)):
@@ -183,6 +187,7 @@ class base():
         plt.legend()
         plt.grid(True)
         plt.show()
+        '''
         return final_angles, final_powers
     
     def measure_angle_local_search(self, Xt:np.ndarray, coarse_angle:float|np.float32, search_width=10):
@@ -249,7 +254,7 @@ class base():
         
         return estimated_angle
     
-    def send_data(self,send_interval=0.1,ip:str = "127.0.0.1", angle:np.ndarray = np.zeros(0),t:np.ndarray = np.zeros(0),port:int = 9999):
+    def send_angle_data(self,angle_list,ip:str = "127.0.0.1",port:int = 9999):
         '''
         **send_interval**:发送数据的时间间隔，单位为秒\n
         **ip**:主控节点的ip地址\n
@@ -259,29 +264,176 @@ class base():
         **注意**:其中angle为目标方向与x轴正方向的夹角
         '''
         try:
-            self.machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            self.machine.connect((self.host_id,port))
-            for i in range(len(angle)):
-                message = {
-                    "station_id": ip,
-                    "target_id": 0,
-                    "timestamp": t[i],
-                    "angle": angle[i]
-                }
-                print(f"向主控节点{self.host_id}发送数据: {message}")
-                message = json.dumps(message)
-                self.machine.send(message.encode("utf-8"))
-                time.sleep(send_interval)
+            for target_id, track_list in angle_list.items():
+                for point in track_list:
+                    # 1. 提取公共信息
+                    ts = point['timestamp']
+                    tid = point['target_id']
+                    
+                    # 2. 构造台站1的数据包 (对应 angle1)
+                    msg_s1 = {
+                        "station_id": 1,          # 必须符合 machine1 的接收字段
+                        "target_id": tid,
+                        "timestamp": ts,
+                        "angle": point['angle1'], # 填入 angle1
+                        "snr": 0.0                # 补全 snr 字段，防止报错
+                    }
+                    # 发送台站1数据
+                    self.machine.sendall((json.dumps(msg_s1) + "\n").encode('utf-8'))
+                    print(f"发送台站1数据: {msg_s1}")
+                    
+                    # 3. 构造台站2的数据包 (对应 angle2)
+                    msg_s2 = {
+                        "station_id": 2,          # 必须符合 machine1 的接收字段
+                        "target_id": tid,
+                        "timestamp": ts,
+                        "angle": point['angle2'], # 填入 angle2
+                        "snr": 0.0
+                    }
+                    # 发送台站2数据
+                    self.machine.sendall((json.dumps(msg_s2) + "\n").encode('utf-8'))
+                    print(f"发送台站2数据: {msg_s2}")
+                    time.sleep(self.data_update_interval/2)
         except Exception as e:
             print(f"发送数据时发生错误: {e}")
         finally:
-            try:
-                self.machine.close()
-            except Exception as e:
-                print(f"关闭连接时发生错误: {e}")
-            print("数据发送完成，连接已关闭。")
+            print("数据发送完成")
+            
+    def format_data_for_machine1(self, my_calculated_points):
+        """
+        将包含 angle1 和 angle2 的扁平列表，
+        转换为 machine1 需要的嵌套字典格式。
+        
+        输入: [{'angle1': 10.5, 'angle2': 15.2, 'timestamp': 0.0, 'target_id': 0}, ...]
+        输出: {'0': {1: [...], 2: [...]} }
+        """
+        formatted_data = {}
+        
+        for point in my_calculated_points:
+            target_id = str(point['target_id']) # 确保 key 是字符串
+            ts = point['timestamp']
+            
+            # 1. 初始化目标容器
+            if target_id not in formatted_data:
+                formatted_data[target_id] = {1: [], 2: []}
+                
+            # 2. 构建台站 1 的数据包
+            # 注意：这里假设 angle1 是台站 1 测得的
+            station1_data = {
+                "angle": point['angle1'], 
+                "timestamp": ts,
+                "target_id": point['target_id']
+            }
+            formatted_data[target_id][1].append(station1_data)
+            
+            # 3. 构建台站 2 的数据包
+            # 注意：这里假设 angle2 是台站 2 测得的
+            station2_data = {
+                "angle": point['angle2'], 
+                "timestamp": ts,
+                "target_id": point['target_id']
+            }
+            formatted_data[target_id][2].append(station2_data)
+            
+        return formatted_data
+
+    def generate_est_angles(self,pos1:list = [0,0],pos2:list = [2000.0,0]):
+        # 假设 machine2 自身的位置 (根据 machine1 中的 station2_pos 设定)
+        # 如果你的 machine2 是 station 1，请改为 [0, 0] 或 machine1 中定义的 station1_pos
+        angle_data = {}
+        
+        station_x1, station_y1 = pos1[0],pos1[1]
+        station_x2, station_y2 = pos2[0],pos2[1]
     
-    def start_signal_processing(self,target_num:int = 1,**params):
+        # 遍历每一个目标的数据
+        for target_id, track_list in self.target_tracks.items():
+            angle_list = []
+            
+            for point in track_list:
+                x = point['x']
+                y = point['y']
+                
+                # 1. 计算相对坐标
+                dx1 = x - station_x1
+                dy1 = y - station_y1
+                
+                dx2 = x - station_x2
+                dy2 = y - station_y2
+                #base_noise = 100.0  # 基础系数，用来调整整体误差大小
+                #noise_std = base_noise / (10 ** (self.motion_params.get('snr',2)/ 20.0)) 
+                noise_std = (10 ** (-(self.motion_params.get('snr',2) - 20) / 15000))
+    
+                # 限制噪声标准差的范围，确保它在 [0.05, 3.0] 之间
+                # 这样即使在最差的信号下，误差也不会失控
+                noise_std = max(1e-7, min(noise_std, 3.0))
+                noise1 = np.random.normal(0,noise_std)
+                noise2 = np.random.normal(0,noise_std)
+                # 2. 计算角度 (以正北为0度，右正左负)
+                # 使用 atan2(dx, dy) 而不是 atan2(dy, dx)
+                angle_rad1 = math.atan2(dy1, dx1)
+                angle_deg1 = float(math.degrees(angle_rad1))#+noise1)
+                
+                angle_rad2 = math.atan2(dy2, dx2)
+                angle_deg2 = float(math.degrees(angle_rad2))#+noise2)
+                
+                # 3. 构建新的数据点，保留 timestamp 和 target_id，替换 x,y 为 angle
+                new_point = {
+                    'angle1': angle_deg1,
+                    'angle2': angle_deg2,
+                    'timestamp': point['timestamp'],
+                    'target_id': point['target_id']
+                }
+                angle_list.append(new_point)
+                
+            # 将处理好的列表存入新字典
+            angle_data[target_id] = angle_list
+        print(f"生成的角度数据: {angle_data}")
+        return angle_data
+    def generate_real_angles(self,pos1:list = [0,0],pos2:list = [2000.0,0]):
+        # 假设 machine2 自身的位置 (根据 machine1 中的 station2_pos 设定)
+        # 如果你的 machine2 是 station 1，请改为 [0, 0] 或 machine1 中定义的 station1_pos
+        angle_data = {}
+        
+        station_x1, station_y1 = pos1[0],pos1[1]
+        station_x2, station_y2 = pos2[0],pos2[1]
+    
+        # 遍历每一个目标的数据
+        for target_id, track_list in self.target_tracks.items():
+            angle_list = []
+            
+            for point in track_list:
+                x = point['x']
+                y = point['y']
+                
+                # 1. 计算相对坐标
+                dx1 = x - station_x1
+                dy1 = y - station_y1
+                
+                dx2 = x - station_x2
+                dy2 = y - station_y2
+                # 2. 计算角度 (以正北为0度，右正左负)
+                # 使用 atan2(dx, dy) 而不是 atan2(dy, dx)
+                angle_rad1 = math.atan2(dy1, dx1)
+                angle_deg1 = math.degrees(angle_rad1)
+                
+                angle_rad2 = math.atan2(dy2, dx2)
+                angle_deg2 = math.degrees(angle_rad2)
+                
+                # 3. 构建新的数据点，保留 timestamp 和 target_id，替换 x,y 为 angle
+                new_point = {
+                    'angle1': angle_deg1,
+                    'angle2': angle_deg2,
+                    'timestamp': point['timestamp'],
+                    'target_id': point['target_id']
+                }
+                angle_list.append(new_point)
+                
+            # 将处理好的列表存入新字典
+            angle_data[target_id] = angle_list
+        print(f"生成的角度数据: {angle_data}")
+        return angle_data
+    
+    def start_signal_processing(self):
         '''开始信号处理流程\n
         1.根据主控节点下发的目标状态和信号参数生成阵列接收数据\n
         2.完成波束的形成、频谱分析、双波束比辐侧向\n
@@ -290,16 +442,27 @@ class base():
             0:{},
             1:{},
             ...}'''
-        try:
-            self.machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            self.machine.connect((self.host_id,params.get('port',9999)))
-        except Exception as e:
-            print(f"连接主控节点时发生错误: {e}")
-            return
-        config = self.machine.recv(1024) #等待主控节点发送开始信号
-        config = json.loads(config.decode("utf-8"))
-        print(f"接收到主控节点的配置: {config}")
         cal = calculator()
+        real_angle = self.generate_real_angles()
+        est_angle = self.generate_est_angles()
+        Xt0 = []
+        Xt1 = []
+        try:
+            for num in range(len(real_angle['0'])):
+                angle1 = [real_angle['0'][num]['angle1'],real_angle['1'][num]['angle1'],real_angle['2'][num]['angle1']]
+                angle2 = [real_angle['0'][num]['angle2'],real_angle['1'][num]['angle2'],real_angle['2'][num]['angle2']]
+                
+                Xt0i = self.signal_construct(0,angle1,s=[1,1,1])
+                Xt1i = self.signal_construct(1,angle2,s=[1,1,1])
+                Xt0.append(Xt0i)
+                Xt1.append(Xt1i)
+        except Exception as e:
+            print(f"信号构建过程中发生错误: {e}")
+        
+        #final_angles, final_powers = self.find_peak_angles(Xt0[0])
+        
+        self.send_angle_data(ip = self.host_id,angle_list = est_angle,port = 9999)
+        '''
         t = np.arange(0, params.get('SDuration',10), 1/params.get('Sr',1000))
         real_angle = []
         estimated_angle = []
@@ -321,6 +484,62 @@ class base():
                 estimated_angles[str(target_id)]=(estimated_angle) #这样操作之后，得到的estimated_angles是一个字典，键是目标编号，值是一个列表，包含了该目标在每个时刻的测量角度
                 estimated_angle.clear()
         self.send_data(ip = self.host_id,angle = np.array(estimated_angles),t = t,port = params.get('port',9999))
+        '''
+    
+    def handle_config(self, config_data):
+        """处理主控节点下发的配置"""
+        sys_config = config_data.get('data', {})
+        self.target_num=sys_config.get("target_num")
+        self.station_distance=sys_config.get("station_distance")
+        self.station_angle_diff=sys_config.get("station_angle_diff")
+        self.array_elem_num=sys_config.get("array_elem_num")
+        self.array_spacing=sys_config.get("array_spacing")
+        self.angle_range=sys_config.get("angle_range")
+        self.data_update_interval=sys_config.get("data_update_interval")
+        self.radiation_params=sys_config.get("radiation_params")
+        self.motion_params=sys_config.get("motion_params")
+        print(f"已接收配置: 阵元数={self.array_elem_num}, 阵元间距={self.array_spacing}, 目标数={self.target_num}")
+        print(f"目标运动参数: {self.motion_params}")
+
+    def handle_tracks(self, tracks_data):
+        """处理主控节点下发的轨迹"""
+        tracks = tracks_data.get('data', {})
+        # 这里需要将 tracks 转换为你代码中 params 的格式
+        # 你的 signal_construct 函数似乎需要 params
+        self.target_tracks = tracks
+        print(f"已接收轨迹数据: {len(tracks)} 个目标")
+        print(tracks)
+    
+    def start_simulation(self,base_num:int = 2,element_num:list = [8,8],ele_distance:list = [1.0,1.0],host_id:str = "127.0.0.1",tport  = 9999):
+        bases = []
+        bases_thread = []
+        try:
+            self.machine = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            self.machine.connect((self.host_id, tport))
+        
+            # 连接成功后，进入监听循环
+            while self.running: # 建议增加一个 self.running 标志位用于控制退出
+                data = receive_complete_json(self.machine)
+                if data is None:
+                    print("连接断开")
+                    break
+                # 注意：这里为了简单演示，实际需要处理粘包问题，参考 machine1 的 buffer 逻辑
+                # 更好的做法是实现一个 receive_complete_json 函数
+                if isinstance(data, dict):
+                    msg_type = data.get('type')
+                    
+                if msg_type == 'CONFIG':
+                    self.handle_config(data)
+                elif msg_type == 'TRACKS':
+                    self.handle_tracks(data)
+                elif msg_type == 'START':
+                    print("收到 START 命令，开始信号处理")
+                    self.start_signal_processing()
+                else:
+                    print(f"收到未知格式数据: {data}")
+        except Exception as e:
+            print(f"连接或接收错误: {e}")
+        
         
 class calculator():
     def __init__(self):
@@ -390,21 +609,34 @@ class calculator():
         return t,signal
             
 
-def start_simulation(base_num:int = 2,element_num:list = [8,8],ele_distance:list = [1.0,1.0],host_id:str = "127.0.0.1",tport  = 9999):
-    bases = []
-    bases_thread = []
-    for i in range(base_num):
-        bases.append(base(i,element_num[i],ele_distance[i],host_id))
-        bases_thread.append(threading.Thread(
-            target=bases[i].start_signal_processing,
-            kwargs = {
-                "port":tport,
-            }
-        ))
-        bases_thread[i].start()
-    for i in range(base_num):
-        bases_thread[i].join()
-        
+def receive_complete_json(sock):
+    buffer = b""
+    
+    while True:
+        try:
+            # 1. 接收数据
+            chunk = sock.recv(1024)
+            if not chunk:
+                return None # 连接断开
+            
+            buffer += chunk
+            
+            # 2. 尝试解码并检查完整性
+            try:
+                text = buffer.decode('utf-8')
+                # 简单检查：如果 { 和 } 数量相等且不为0，且开头是 { 结尾是 }，假设它是完整的
+                # 注意：这只是简单检查，最严谨的方法是 try-except json.loads
+                if text.startswith('{') and text.rstrip().endswith('}'):
+                     # 尝试解析
+                    data = json.loads(text)
+                    return data # 成功解析，返回数据
+            except json.JSONDecodeError:
+                # 解析失败，说明数据还没收全，继续循环接收下一块
+                continue
+                
+        except Exception as e:
+            print(f"接收出错: {e}")
+            return None
 ##测试脚本如下
 if __name__ == "__main__":
     '''
@@ -426,10 +658,14 @@ if __name__ == "__main__":
     Xt = b.signal_construct(0,real)
     ma,mp = b.find_peak_angles(Xt)
     angle = []
+    
+    
     for a in range(len(ma)):
         anglei = b.measure_angle_local_search(Xt,ma[a])
         angle.append(anglei)
     print(real)
     print(np.array(angle))
     '''
-    start_simulation(host_id=socket.gethostbyname(socket.gethostname()))
+    ip = input("请输入主控节点的ip地址: ")
+    bases = base(2,host_id=ip)
+    bases.start_simulation(host_id = ip)

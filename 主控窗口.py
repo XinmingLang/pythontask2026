@@ -21,16 +21,18 @@ class Ui_MainWindow(object):
     def __init__(self):
         super().__init__()
         self.scene_maked = False
+        self.running = False
+        self.start_thread = None
         self.setting_datas = {
             "point_0":{
                 "array_num": 8,
                 "element_spacing": 6,
-                "station_spacing": 2000.0
+                "station_spacing": 20000.0
             },
             "point_1":{
                 "array_num": 8,
                 "element_spacing": 6,
-                "station_spacing": 2000.0
+                "station_spacing": 20000.0
             },
             "target_0":{
                 "activated":True,
@@ -653,13 +655,29 @@ class Ui_MainWindow(object):
     
     def start_positioning(self):
         print("开始定位")
+        if self.running:
+            print("定位线程已在运行，无法启动新的定位")
+            return
+        self.running = True
         #self.machine.config.update(activated_target_num = self.activated_target_num,**self.setting_datas)
-        self.start_positioning_simulated()
+        self.machine = machine1.Machine1Master(receiver_port = 9999,activated_target_num = self.activated_target_num,**self.setting_datas)
+        self.start_thread = threading.Thread(target=self.start_positioning_simulated, daemon=True)
+        self.start_thread.start()
         #self.error_result, self.error_stats = self.machine.generate_demo_data()
         #self.machine.error_analyzer.print_error_stats(self.error_stats)
         #print(self.error_result)
     
     def start_positioning_simulated(self):
+        
+        if hasattr(self, "machine") and self.machine is not None:
+            print("正在停止之前的定位...")
+            try:
+                self.machine.stop()
+            except Exception as e:
+                print(f"停止过程中发生错误: {str(e)}")
+        time.sleep(0.5)
+        
+            
         print("========== 机器1启动 ==========")
         self.machine.config.print_config()
 
@@ -667,14 +685,15 @@ class Ui_MainWindow(object):
         recv_thread.start()
 
         print("[Machine1] 等待机器2连接...（超时10秒进入演示模式）")
+        if not self.running: return
         ok = self.machine.receiver.wait_for_machine2(timeout=None)
-
+        if not self.running: return
         if not ok:
             print("[Machine1] 未检测到机器2，使用仿真数据演示绘图")
             error_result, error_stats = self.machine.generate_demo_data()
         else:
             print("[Machine1] 机器2已连接，准备发送真实数据...")
-
+            if not self.running: return
             config_msg = {
                 "type": "CONFIG",
                 "data": self.machine.config.to_dict()
@@ -688,7 +707,7 @@ class Ui_MainWindow(object):
             }
             self.machine.receiver.send_json_to_machine2(tracks_msg)
             print("[Machine1] 已发送 TRACKS")
-
+            if not self.running: return
             time.sleep(0.5)
             self.machine.receiver.send_start_command()
 
@@ -696,31 +715,25 @@ class Ui_MainWindow(object):
             wait_time = total_time + 3.0
             print(f"[Machine1] 开始接收数据，等待约 {wait_time:.1f}s ...")
             time.sleep(wait_time)
-
+            if not self.running: return
             print("[Machine1] 执行定位...")
             locate_result = self.machine.locator.multi_target_locate(self.machine.receiver)
-
+            if not self.running: return
             print("[Machine1] 误差分析...")
             self.error_result, self.error_stats = self.machine.error_analyzer.multi_target_error_analysis(locate_result)
-
-        self.machine.error_analyzer.print_error_stats(error_stats)
-
-        print("[Machine1] 绘制轨迹与误差图...")
-        self.machine.visualizer.draw_all_figures(error_result)
-
-        print("[Machine1] 绘制误差统计柱状图...")
-        self.machine.visualizer.draw_error_stat_bar(error_stats)
-
-        print("[Machine1] 绘制波束时域波形...")
-        self.machine.visualizer.draw_beam_time_waveform()
-
-        print("[Machine1] 绘制波束频谱...")
-        self.machine.visualizer.draw_beam_spectrum()
-
-        self.machine.stop()
+            self.machine.error_analyzer.print_error_stats(self.error_stats)
+        while self.running:
+            time.sleep(1)
     
     def stop_positioning(self):
         print("停止定位")
+        try:
+            if hasattr(self,'start_thread') and self.start_thread.is_alive():#type:ignore
+                print("定位线程已在运行，正在尝试关闭之前的定位...")
+                self.running = False
+                self.start_thread.join(timeout=5)#type:ignore
+        except Exception as e:
+            print(f"停止之前的定位时发生错误: {str(e)}")
 if __name__=='__main__':
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
